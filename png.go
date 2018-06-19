@@ -32,9 +32,11 @@ func writeIHDR(w io.Writer, data ImageData) {
 }
 
 func writePLTE(w io.Writer, data ImageData) {
+	t := make([]byte, 3)
 	b := make([]byte, 0, 768)
 	for _, e := range data.palette {
-		b = append(b, e.ToByteSlice()...)
+		e.ToByteSlice(t)
+		b = append(b, t...)
 	}
 	writeChunk(w, "PLTE", b)
 }

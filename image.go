@@ -1,12 +1,10 @@
 package main
 
 // ToByteSlice converts palette entry to byte slice.
-func (v Rgb) ToByteSlice() []byte {
-	result := make([]byte, 3)
-	result[0] = v.r
-	result[1] = v.g
-	result[2] = v.b
-	return result
+func (v Rgb) ToByteSlice(p []byte) {
+	p[0] = v.r
+	p[1] = v.g
+	p[2] = v.b
 }
 
 // Rgb holds pixel data.
