@@ -63,6 +63,7 @@ func writeIDAT(w io.Writer, data ImageData) {
 	writeChunk(w, "IDAT", buf.Bytes())
 }
 
+// WritePng writes the image data to writer in PNG format.
 func WritePng(w io.Writer, data ImageData) {
 	writePngSignature(w)
 	writeIHDR(w, data)
