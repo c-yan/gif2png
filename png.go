@@ -8,22 +8,19 @@ import (
 	"io"
 )
 
-func toByteSlice(v uint32) []byte {
-	result := make([]byte, 4)
-	binary.BigEndian.PutUint32(result, v)
-	return result
-}
-
 func writePngSignature(w io.Writer) {
 	w.Write([]byte{137, 80, 78, 71, 13, 10, 26, 10})
 }
 
 func writeChunk(w io.Writer, chunkType string, data []byte) {
 	ctb := []byte(chunkType)
-	w.Write(toByteSlice(uint32(len(data))))
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, uint32(len(data)))
+	w.Write(b)
 	w.Write(ctb)
 	w.Write(data)
-	w.Write(toByteSlice(crc32.Update(crc32.ChecksumIEEE(ctb), crc32.IEEETable, data)))
+	binary.BigEndian.PutUint32(b, crc32.Update(crc32.ChecksumIEEE(ctb), crc32.IEEETable, data))
+	w.Write(b)
 }
 
 func writeIHDR(w io.Writer, data ImageData) {
