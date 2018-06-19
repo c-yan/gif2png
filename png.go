@@ -27,9 +27,9 @@ func writeChunk(w io.Writer, chunkType string, data []byte) {
 }
 
 func writeIHDR(w io.Writer, data ImageData) {
-	b := make([]byte, 0, 13)
-	b = append(b, toByteSlice(uint32(data.width))...)
-	b = append(b, toByteSlice(uint32(data.height))...)
+	b := make([]byte, 8, 13)
+	binary.BigEndian.PutUint32(b[0:4], uint32(data.width))
+	binary.BigEndian.PutUint32(b[4:8], uint32(data.height))
 	b = append(b, []byte{8, 3, 0, 0, 0}...)
 	writeChunk(w, "IHDR", b)
 }
