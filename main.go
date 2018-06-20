@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 )
 
@@ -13,7 +14,7 @@ func main() {
 	data.data = make([]byte, data.width*data.height)
 	file, err := os.Create("test.png")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	defer file.Close()
 	WritePng(file, data)

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"log"
 )
 
 const (
@@ -108,7 +109,7 @@ func writeIDAT(w io.Writer, data ImageData) {
 	buf := &bytes.Buffer{}
 	zw, err := zlib.NewWriterLevel(buf, zlib.BestCompression)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	defer zw.Close()
 	zw.Write(serialize(data))
