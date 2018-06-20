@@ -8,6 +8,29 @@ import (
 	"io"
 )
 
+const (
+	paletteUsed   = 1
+	trueColorUsed = 2
+	alphaUsed     = 4
+)
+
+const (
+	deflateCompression = iota
+)
+
+const (
+	noneFilter = iota
+	subFilter
+	upFilter
+	averageFilter
+	paethFilter
+)
+
+const (
+	noInterlace = iota
+	adam7Interlace
+)
+
 func writePngSignature(w io.Writer) {
 	w.Write([]byte{137, 80, 78, 71, 13, 10, 26, 10})
 }
@@ -27,7 +50,7 @@ func writeIHDR(w io.Writer, data ImageData) {
 	b := make([]byte, 8, 13)
 	binary.BigEndian.PutUint32(b[0:4], uint32(data.width))
 	binary.BigEndian.PutUint32(b[4:8], uint32(data.height))
-	b = append(b, []byte{8, 3, 0, 0, 0}...)
+	b = append(b, []byte{8, paletteUsed | trueColorUsed, deflateCompression, noneFilter, noInterlace}...)
 	writeChunk(w, "IHDR", b)
 }
 
