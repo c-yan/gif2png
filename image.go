@@ -1,10 +1,18 @@
 package main
 
-// ToByteSlice converts palette entry to byte slice.
-func (v Rgb) ToByteSlice(p []byte) {
-	p[0] = v.r
-	p[1] = v.g
-	p[2] = v.b
+import (
+	"fmt"
+)
+
+// UnmarshalBinary converts palette entry to byte slice.
+func (v Rgb) UnmarshalBinary(data []byte) error {
+	if cap(data) < 3 {
+		return fmt.Errorf("Capacity is not enough. required: %d, actual: %d", 3, cap(data))
+	}
+	data[0] = v.r
+	data[1] = v.g
+	data[2] = v.b
+	return nil
 }
 
 // Rgb holds pixel data.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
+	"fmt"
 	"hash/crc32"
 	"io"
 )
@@ -31,6 +32,30 @@ const (
 	adam7Interlace
 )
 
+type imageHeader struct {
+	Width             uint32
+	Height            uint32
+	BitDepth          byte
+	ColorType         byte
+	CompressionMethod byte
+	FilterMethod      byte
+	InterlaceMethod   byte
+}
+
+func (v imageHeader) UnmarshalBinary(data []byte) error {
+	if cap(data) < 13 {
+		return fmt.Errorf("Capacity is not enough. required: %d, actual: %d", 13, cap(data))
+	}
+	binary.BigEndian.PutUint32(data[0:4], v.Width)
+	binary.BigEndian.PutUint32(data[4:8], v.Height)
+	data[8] = v.BitDepth
+	data[9] = v.ColorType
+	data[10] = v.CompressionMethod
+	data[11] = v.FilterMethod
+	data[12] = v.InterlaceMethod
+	return nil
+}
+
 func writePngSignature(w io.Writer) {
 	w.Write([]byte{137, 80, 78, 71, 13, 10, 26, 10})
 }
@@ -47,10 +72,16 @@ func writeChunk(w io.Writer, chunkType string, data []byte) {
 }
 
 func writeIHDR(w io.Writer, data ImageData) {
-	b := make([]byte, 8, 13)
-	binary.BigEndian.PutUint32(b[0:4], uint32(data.width))
-	binary.BigEndian.PutUint32(b[4:8], uint32(data.height))
-	b = append(b, []byte{8, paletteUsed | trueColorUsed, deflateCompression, noneFilter, noInterlace}...)
+	b := make([]byte, 13)
+	imageHeader{
+		Width:             uint32(data.width),
+		Height:            uint32(data.height),
+		BitDepth:          8,
+		ColorType:         paletteUsed | trueColorUsed,
+		CompressionMethod: deflateCompression,
+		FilterMethod:      noneFilter,
+		InterlaceMethod:   noInterlace,
+	}.UnmarshalBinary(b)
 	writeChunk(w, "IHDR", b)
 }
 
@@ -58,7 +89,7 @@ func writePLTE(w io.Writer, data ImageData) {
 	t := make([]byte, 3)
 	b := make([]byte, 0, 768)
 	for _, e := range data.palette {
-		e.ToByteSlice(t)
+		e.UnmarshalBinary(t)
 		b = append(b, t...)
 	}
 	writeChunk(w, "PLTE", b)
