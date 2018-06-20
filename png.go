@@ -91,5 +91,5 @@ func WritePng(w io.Writer, data ImageData) {
 	writeIHDR(w, data)
 	writePLTE(w, data)
 	writeIDAT(w, data)
-	writeChunk(w, "IEND", make([]byte, 0))
+	writeChunk(w, "IEND", nil)
 }
