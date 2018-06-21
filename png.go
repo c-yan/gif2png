@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/binary"
-	"fmt"
 	"hash/crc32"
 	"io"
 	"log"
@@ -43,10 +42,8 @@ type imageHeader struct {
 	InterlaceMethod   byte
 }
 
-func (v imageHeader) UnmarshalBinary(data []byte) error {
-	if cap(data) < 13 {
-		return fmt.Errorf("Capacity is not enough. required: %d, actual: %d", 13, cap(data))
-	}
+func (v imageHeader) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, 13)
 	binary.BigEndian.PutUint32(data[0:4], v.Width)
 	binary.BigEndian.PutUint32(data[4:8], v.Height)
 	data[8] = v.BitDepth
@@ -54,7 +51,7 @@ func (v imageHeader) UnmarshalBinary(data []byte) error {
 	data[10] = v.CompressionMethod
 	data[11] = v.FilterMethod
 	data[12] = v.InterlaceMethod
-	return nil
+	return data, nil
 }
 
 func writePngSignature(w io.Writer) {
@@ -72,9 +69,8 @@ func writeChunk(w io.Writer, chunkType string, data []byte) {
 	w.Write(b)
 }
 
-func writeIHDR(w io.Writer, data ImageData) {
-	b := make([]byte, 13)
-	imageHeader{
+func writeIHDR(w io.Writer, data *ImageData) {
+	b, _ := imageHeader{
 		Width:             uint32(data.width),
 		Height:            uint32(data.height),
 		BitDepth:          8,
@@ -82,21 +78,16 @@ func writeIHDR(w io.Writer, data ImageData) {
 		CompressionMethod: deflateCompression,
 		FilterMethod:      noneFilter,
 		InterlaceMethod:   noInterlace,
-	}.UnmarshalBinary(b)
+	}.MarshalBinary()
 	writeChunk(w, "IHDR", b)
 }
 
-func writePLTE(w io.Writer, data ImageData) {
-	t := make([]byte, 3)
-	b := make([]byte, 0, 768)
-	for _, e := range data.palette {
-		e.UnmarshalBinary(t)
-		b = append(b, t...)
-	}
+func writePLTE(w io.Writer, data *ImageData) {
+	b, _ := data.palette.MarshalBinary()
 	writeChunk(w, "PLTE", b)
 }
 
-func serialize(data ImageData) []byte {
+func serialize(data *ImageData) []byte {
 	b := make([]byte, 0, (data.width+1)*data.height)
 	for i := 0; i < data.height; i++ {
 		b = append(b, 0)
@@ -105,7 +96,7 @@ func serialize(data ImageData) []byte {
 	return b
 }
 
-func writeIDAT(w io.Writer, data ImageData) {
+func writeIDAT(w io.Writer, data *ImageData) {
 	buf := &bytes.Buffer{}
 	zw, err := zlib.NewWriterLevel(buf, zlib.BestCompression)
 	if err != nil {
@@ -118,7 +109,7 @@ func writeIDAT(w io.Writer, data ImageData) {
 }
 
 // WritePng writes the image data to writer in PNG format.
-func WritePng(w io.Writer, data ImageData) error {
+func WritePng(w io.Writer, data *ImageData) error {
 	writePngSignature(w)
 	writeIHDR(w, data)
 	writePLTE(w, data)

@@ -1,18 +1,14 @@
 package main
 
-import (
-	"fmt"
-)
-
-// UnmarshalBinary converts palette entry to byte slice.
-func (v Rgb) UnmarshalBinary(data []byte) error {
-	if cap(data) < 3 {
-		return fmt.Errorf("Capacity is not enough. required: %d, actual: %d", 3, cap(data))
+// MarshalBinary converts palette entry to byte slice.
+func (v Palette) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, 3*len(v))
+	for i := 0; i < len(v); i++ {
+		data[i*3] = v[i].r
+		data[i*3+1] = v[i].g
+		data[i*3+2] = v[i].b
 	}
-	data[0] = v.r
-	data[1] = v.g
-	data[2] = v.b
-	return nil
+	return data, nil
 }
 
 // Rgb holds pixel data.
@@ -22,10 +18,13 @@ type Rgb struct {
 	b byte
 }
 
+// Palette holds palette data.
+type Palette []Rgb
+
 // ImageData holds picture data.
 type ImageData struct {
 	width   int
 	height  int
-	palette []Rgb
+	palette Palette
 	data    []byte
 }

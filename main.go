@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-func readFile(path string) (ImageData, error) {
+func readFile(path string) (*ImageData, error) {
 	in, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -14,7 +14,7 @@ func readFile(path string) (ImageData, error) {
 	return ReadGif(in)
 }
 
-func writeFile(path string, data ImageData) error {
+func writeFile(path string, data *ImageData) error {
 	out, err := os.Create(path)
 	if err != nil {
 		log.Fatal(err)
