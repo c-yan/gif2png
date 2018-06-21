@@ -5,17 +5,31 @@ import (
 	"os"
 )
 
-func main() {
-	var data ImageData
-	data.width = 320
-	data.height = 320
-	data.palette = make([]Rgb, 256)
-	data.palette[0].b = 255
-	data.data = make([]byte, data.width*data.height)
-	file, err := os.Create("test.png")
+func readFile(path string) (ImageData, error) {
+	in, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
-	WritePng(file, data)
+	defer in.Close()
+	return ReadGif(in)
+}
+
+func writeFile(path string, data ImageData) error {
+	out, err := os.Create(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer out.Close()
+	return WritePng(out, data)
+}
+
+func main() {
+	data, err := readFile("test.gif")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = writeFile("test.png", data)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

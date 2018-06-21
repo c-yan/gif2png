@@ -118,10 +118,11 @@ func writeIDAT(w io.Writer, data ImageData) {
 }
 
 // WritePng writes the image data to writer in PNG format.
-func WritePng(w io.Writer, data ImageData) {
+func WritePng(w io.Writer, data ImageData) error {
 	writePngSignature(w)
 	writeIHDR(w, data)
 	writePLTE(w, data)
 	writeIDAT(w, data)
 	writeChunk(w, "IEND", nil)
+	return nil
 }
