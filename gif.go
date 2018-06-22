@@ -65,7 +65,7 @@ func readHeadser(r io.Reader) (*header, error) {
 		return nil, err
 	}
 	if n != headerSize {
-		return nil, errors.New("Unexpeced EoF")
+		return nil, io.ErrUnexpectedEOF
 	}
 	h.UnmarshalBinary(buf[:])
 	if h.Signature != "GIF" {
@@ -96,7 +96,7 @@ func readLogicalScreenDescriptor(r io.Reader) (*logicalScreenDescriptor, error) 
 		return nil, err
 	}
 	if n != logicalScreenDescriptorSize {
-		return nil, errors.New("Unexpeced EoF")
+		return nil, io.ErrUnexpectedEOF
 	}
 	l.UnmarshalBinary(buf[:])
 
@@ -107,7 +107,7 @@ func readLogicalScreenDescriptor(r io.Reader) (*logicalScreenDescriptor, error) 
 			return nil, err
 		}
 		if n != int(l.SizeOfGlobalColorTable*3) {
-			return nil, errors.New("Unexpeced EoF")
+			return nil, io.ErrUnexpectedEOF
 		}
 	}
 
