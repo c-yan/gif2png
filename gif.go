@@ -137,8 +137,10 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 
 	data.width = int(l.LogicalScreenWidth)
 	data.height = int(l.LogicalScreenHeight)
-	data.palette = make([]Rgb, 256)
-	data.palette[0].b = 255
+	if l.GlobalColorTableFlag {
+		data.palette = make([]Rgb, l.SizeOfGlobalColorTable)
+		data.palette.UnmarshalBinary(l.GlobalColorTable)
+	}
 	data.data = make([]byte, data.width*data.height)
 	return &data, nil
 }
