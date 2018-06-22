@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 )
 
 type header struct {
@@ -11,27 +13,58 @@ type header struct {
 	Version   string
 }
 
+type logicalScreenDescriptor struct {
+	LogicalScreenWidth     uint16
+	LogicalScreenHeight    uint16
+	GlobalColorTableFlag   bool
+	ColorResolution        byte
+	SortFlag               bool
+	SizeOfGlobalColorTable uint
+	BackgroundColorIndex   byte
+	PixelAspectRatio       byte
+	GlobalColorTable       []byte
+}
+
+const (
+	headerSize                  = 6
+	logicalScreenDescriptorSize = 7
+)
+
 func (v *header) UnmarshalBinary(data []byte) error {
-	const size = 6
-	if len(data) < size {
-		return fmt.Errorf("Len is not enough. required: %d, actual: %d", size, len(data))
+	if len(data) < headerSize {
+		return fmt.Errorf("Len is not enough. required: %d, actual: %d", headerSize, len(data))
 	}
 	v.Signature = string(data[:3])
 	v.Version = string(data[3:6])
 	return nil
 }
 
+func (v *logicalScreenDescriptor) UnmarshalBinary(data []byte) error {
+	if len(data) < logicalScreenDescriptorSize {
+		return fmt.Errorf("Len is not enough. required: %d, actual: %d", logicalScreenDescriptorSize, len(data))
+	}
+	v.LogicalScreenWidth = binary.LittleEndian.Uint16(data[:])
+	v.LogicalScreenHeight = binary.LittleEndian.Uint16(data[2:])
+	v.GlobalColorTableFlag = ((data[4] & 0x80) >> 7) == 1
+	v.ColorResolution = ((data[4] & 0x70) >> 4) + 1
+	v.SortFlag = ((data[4] & 0x8) >> 3) == 1
+	v.SizeOfGlobalColorTable = uint(math.Pow(2, float64(data[4]&0x7+1)))
+	v.BackgroundColorIndex = data[5]
+	v.PixelAspectRatio = data[6]
+	return nil
+}
+
 func readHeadser(r io.Reader) (*header, error) {
 	var (
 		h   header
-		buf [6]byte
+		buf [headerSize]byte
 	)
 
-	n, err := r.Read(buf[:6])
+	n, err := r.Read(buf[:])
 	if err != nil {
 		return nil, err
 	}
-	if n != 6 {
+	if n != headerSize {
 		return nil, errors.New("Unexpeced EoF")
 	}
 	h.UnmarshalBinary(buf[:])
@@ -50,12 +83,44 @@ func readHeadser(r io.Reader) (*header, error) {
 	return &h, nil
 }
 
+func readLogicalScreenDescriptor(r io.Reader) (*logicalScreenDescriptor, error) {
+	var (
+		l   logicalScreenDescriptor
+		buf [logicalScreenDescriptorSize]byte
+		n   int
+		err error
+	)
+
+	n, err = r.Read(buf[:])
+	if err != nil {
+		return nil, err
+	}
+	if n != logicalScreenDescriptorSize {
+		return nil, errors.New("Unexpeced EoF")
+	}
+	l.UnmarshalBinary(buf[:])
+
+	if l.GlobalColorTableFlag {
+		l.GlobalColorTable = make([]byte, l.SizeOfGlobalColorTable*3)
+		n, err = r.Read(l.GlobalColorTable)
+		if err != nil {
+			return nil, err
+		}
+		if n != int(l.SizeOfGlobalColorTable*3) {
+			return nil, errors.New("Unexpeced EoF")
+		}
+	}
+
+	return &l, nil
+}
+
 // ReadGif reads the image data from reader as GIF format.
 func ReadGif(r io.Reader) (*ImageData, error) {
 	var (
 		err  error
 		data ImageData
 		h    *header
+		l    *logicalScreenDescriptor
 	)
 
 	h, err = readHeadser(r)
@@ -65,9 +130,13 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 	if h.Version != "87a" {
 		return nil, errors.New("Not implemented")
 	}
+	l, err = readLogicalScreenDescriptor(r)
+	if err != nil {
+		return nil, err
+	}
 
-	data.width = 320
-	data.height = 320
+	data.width = int(l.LogicalScreenWidth)
+	data.height = int(l.LogicalScreenHeight)
 	data.palette = make([]Rgb, 256)
 	data.palette[0].b = 255
 	data.data = make([]byte, data.width*data.height)
