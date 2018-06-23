@@ -221,7 +221,7 @@ func readImageDescriptor(r io.Reader) (*imageDescriptor, error) {
 		return nil, err
 	}
 	if n != imageDescriptorSize {
-		return nil, errors.New("Unexpeced EoF")
+		return nil, io.ErrUnexpectedEOF
 	}
 	i.UnmarshalBinary(buf[:])
 
@@ -232,7 +232,7 @@ func readImageDescriptor(r io.Reader) (*imageDescriptor, error) {
 			return nil, err
 		}
 		if n != int(i.SizeOfLocalColorTable*3) {
-			return nil, errors.New("Unexpeced EoF")
+			return nil, io.ErrUnexpectedEOF
 		}
 	}
 
