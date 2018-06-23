@@ -39,17 +39,15 @@ type imageDescriptor struct {
 	LocalColorTable       []byte
 }
 
-// BlockReader is reader for GIF block
-type BlockReader struct {
+type blockReader struct {
 	buf     [255]byte
 	bufLen  int
 	bufNext int
 	r       io.Reader
 }
 
-// NewBlockReader creates a new BlockReader.
-func NewBlockReader(r io.Reader) *BlockReader {
-	return &BlockReader{
+func newBlockReader(r io.Reader) *blockReader {
+	return &blockReader{
 		r:       r,
 		bufLen:  0,
 		bufNext: 0,
@@ -63,7 +61,7 @@ func min(a, b int) int {
 	return b
 }
 
-func (v *BlockReader) readNextBlock() error {
+func (v *blockReader) readNextBlock() error {
 	var buf [1]byte
 	n, err := v.r.Read(buf[:])
 	if n == 0 {
@@ -84,7 +82,7 @@ func (v *BlockReader) readNextBlock() error {
 	return nil
 }
 
-func (v *BlockReader) Read(p []byte) (n int, err error) {
+func (v *blockReader) Read(p []byte) (n int, err error) {
 	if v.bufNext >= v.bufLen {
 		err = v.readNextBlock()
 		if err == io.EOF {
@@ -255,7 +253,7 @@ func readTableBasedImageData(r io.Reader, width int, height int) ([]byte, error)
 		return nil, io.ErrUnexpectedEOF
 	}
 	litWidth := int(buf[0])
-	lr := lzw.NewReader(NewBlockReader(r), lzw.LSB, litWidth)
+	lr := lzw.NewReader(newBlockReader(r), lzw.LSB, litWidth)
 	defer lr.Close()
 	n, err = io.ReadFull(lr, result)
 	if err != nil {
