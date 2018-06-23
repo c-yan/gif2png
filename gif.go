@@ -39,15 +39,17 @@ type imageDescriptor struct {
 	LocalColorTable       []byte
 }
 
-type blockReader struct {
+// BlockReader is reader for GIF block
+type BlockReader struct {
 	buf     [255]byte
 	bufLen  int
 	bufNext int
 	r       io.Reader
 }
 
-func NewBlockReader(r io.Reader) *blockReader {
-	return &blockReader{
+// NewBlockReader creates a new BlockReader.
+func NewBlockReader(r io.Reader) *BlockReader {
+	return &BlockReader{
 		r:       r,
 		bufLen:  0,
 		bufNext: 0,
@@ -61,7 +63,7 @@ func min(a, b int) int {
 	return b
 }
 
-func (v *blockReader) readNextBlock() error {
+func (v *BlockReader) readNextBlock() error {
 	var buf [1]byte
 	n, err := v.r.Read(buf[:])
 	if n == 0 {
@@ -82,7 +84,7 @@ func (v *blockReader) readNextBlock() error {
 	return nil
 }
 
-func (v *blockReader) Read(p []byte) (n int, err error) {
+func (v *BlockReader) Read(p []byte) (n int, err error) {
 	if v.bufNext >= v.bufLen {
 		err = v.readNextBlock()
 		if err == io.EOF {
