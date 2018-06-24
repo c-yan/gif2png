@@ -156,12 +156,9 @@ func readHeadser(r io.Reader) (*header, error) {
 		buf [headerSize]byte
 	)
 
-	n, err := r.Read(buf[:])
+	_, err := io.ReadFull(r, buf[:])
 	if err != nil {
 		return nil, err
-	}
-	if n != headerSize {
-		return nil, io.ErrUnexpectedEOF
 	}
 	h.UnmarshalBinary(buf[:])
 	if h.Signature != "GIF" {
@@ -183,27 +180,19 @@ func readLogicalScreenDescriptor(r io.Reader) (*logicalScreenDescriptor, error) 
 	var (
 		l   logicalScreenDescriptor
 		buf [logicalScreenDescriptorSize]byte
-		n   int
-		err error
 	)
 
-	n, err = r.Read(buf[:])
+	_, err := io.ReadFull(r, buf[:])
 	if err != nil {
 		return nil, err
-	}
-	if n != logicalScreenDescriptorSize {
-		return nil, io.ErrUnexpectedEOF
 	}
 	l.UnmarshalBinary(buf[:])
 
 	if l.GlobalColorTableFlag {
 		l.GlobalColorTable = make([]byte, l.SizeOfGlobalColorTable*3)
-		n, err = r.Read(l.GlobalColorTable)
+		_, err = io.ReadFull(r, l.GlobalColorTable)
 		if err != nil {
 			return nil, err
-		}
-		if n != int(l.SizeOfGlobalColorTable*3) {
-			return nil, io.ErrUnexpectedEOF
 		}
 	}
 
@@ -214,27 +203,19 @@ func readImageDescriptor(r io.Reader) (*imageDescriptor, error) {
 	var (
 		i   imageDescriptor
 		buf [imageDescriptorSize]byte
-		n   int
-		err error
 	)
 
-	n, err = r.Read(buf[:])
+	_, err := io.ReadFull(r, buf[:])
 	if err != nil {
 		return nil, err
-	}
-	if n != imageDescriptorSize {
-		return nil, io.ErrUnexpectedEOF
 	}
 	i.UnmarshalBinary(buf[:])
 
 	if i.LocalColorTableFlag {
 		i.LocalColorTable = make([]byte, i.SizeOfLocalColorTable*3)
-		n, err = r.Read(i.LocalColorTable)
+		_, err = io.ReadFull(r, i.LocalColorTable)
 		if err != nil {
 			return nil, err
-		}
-		if n != int(i.SizeOfLocalColorTable*3) {
-			return nil, io.ErrUnexpectedEOF
 		}
 	}
 
