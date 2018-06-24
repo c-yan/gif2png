@@ -124,6 +124,10 @@ func writeIDAT(w io.Writer, data *ImageData) error {
 	return nil
 }
 
+func writeIEND(w io.Writer) error {
+	return writeChunk(w, "IEND", nil)
+}
+
 // WritePng writes the image data to writer in PNG format.
 func WritePng(w io.Writer, data *ImageData) error {
 	if err := writePngSignature(w); err != nil {
@@ -138,7 +142,7 @@ func WritePng(w io.Writer, data *ImageData) error {
 	if err := writeIDAT(w, data); err != nil {
 		return err
 	}
-	if err := writeChunk(w, "IEND", nil); err != nil {
+	if err := writeIEND(w); err != nil {
 		return err
 	}
 	return nil
