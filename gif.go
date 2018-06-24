@@ -245,11 +245,12 @@ func readTableBasedImageData(r io.Reader, width int, height int) ([]byte, error)
 // ReadGif reads the image data from reader as GIF format.
 func ReadGif(r io.Reader) (*ImageData, error) {
 	var (
-		err  error
-		data ImageData
-		h    *header
-		l    *logicalScreenDescriptor
-		i    *imageDescriptor
+		err               error
+		data              ImageData
+		h                 *header
+		l                 *logicalScreenDescriptor
+		i                 *imageDescriptor
+		errNotImplemented = errors.New("Not implemented")
 	)
 
 	h, err = readHeadser(r)
@@ -257,11 +258,14 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 		return nil, err
 	}
 	if h.Version != "87a" {
-		return nil, errors.New("Not implemented")
+		return nil, errNotImplemented
 	}
 	l, err = readLogicalScreenDescriptor(r)
 	if err != nil {
 		return nil, err
+	}
+	if l.ColorResolution != 8 {
+		return nil, errNotImplemented
 	}
 	i, err = readImageDescriptor(r)
 	if err != nil {
