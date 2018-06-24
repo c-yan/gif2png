@@ -61,23 +61,27 @@ func min(a, b int) int {
 	return b
 }
 
-func (v *blockReader) readNextBlock() error {
+func readByte(r io.Reader) (byte, error) {
 	var buf [1]byte
-	n, err := v.r.Read(buf[:])
+	n, err := r.Read(buf[:])
 	if n == 0 {
-		return io.ErrUnexpectedEOF
+		return 0, io.ErrUnexpectedEOF
 	}
+	return buf[0], err
+}
+
+func (v *blockReader) readNextBlock() error {
+	blockSize, err := readByte(v.r)
 	if err != nil {
 		return err
 	}
-	blockSize := int(buf[0])
 	if blockSize == 0 {
 		return io.EOF
 	}
 	if _, err = io.ReadFull(v.r, v.buf[:blockSize]); err != nil {
 		return err
 	}
-	v.bufLen = blockSize
+	v.bufLen = int(blockSize)
 	v.bufNext = 0
 	return nil
 }
@@ -239,23 +243,18 @@ func readImageDescriptor(r io.Reader) (*imageDescriptor, error) {
 
 func readTableBasedImageData(r io.Reader, width int, height int) ([]byte, error) {
 	var (
-		result []byte
-		buf    [1]byte
-		n      int
-		err    error
+		result   []byte
+		err      error
+		litWidth byte
 	)
 	result = make([]byte, width*height)
-	n, err = r.Read(buf[:])
+	litWidth, err = readByte(r)
 	if err != nil {
 		return nil, err
 	}
-	if n != 1 {
-		return nil, io.ErrUnexpectedEOF
-	}
-	litWidth := int(buf[0])
-	lr := lzw.NewReader(newBlockReader(r), lzw.LSB, litWidth)
+	lr := lzw.NewReader(newBlockReader(r), lzw.LSB, int(litWidth))
 	defer lr.Close()
-	n, err = io.ReadFull(lr, result)
+	_, err = io.ReadFull(lr, result)
 	if err != nil {
 		return nil, err
 	}
