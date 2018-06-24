@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"hash/crc32"
 	"io"
-	"log"
 )
 
 const (
@@ -54,22 +53,32 @@ func (v imageHeader) MarshalBinary() (data []byte, err error) {
 	return data, nil
 }
 
-func writePngSignature(w io.Writer) {
-	w.Write([]byte{137, 80, 78, 71, 13, 10, 26, 10})
+func writePngSignature(w io.Writer) error {
+	_, err := w.Write([]byte{137, 80, 78, 71, 13, 10, 26, 10})
+	return err
 }
 
-func writeChunk(w io.Writer, chunkType string, data []byte) {
+func writeChunk(w io.Writer, chunkType string, data []byte) error {
 	ctb := []byte(chunkType)
 	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, uint32(len(data)))
-	w.Write(b)
-	w.Write(ctb)
-	w.Write(data)
+	if _, err := w.Write(b); err != nil {
+		return err
+	}
+	if _, err := w.Write(ctb); err != nil {
+		return err
+	}
+	if _, err := w.Write(data); err != nil {
+		return err
+	}
 	binary.BigEndian.PutUint32(b, crc32.Update(crc32.ChecksumIEEE(ctb), crc32.IEEETable, data))
-	w.Write(b)
+	if _, err := w.Write(b); err != nil {
+		return err
+	}
+	return nil
 }
 
-func writeIHDR(w io.Writer, data *ImageData) {
+func writeIHDR(w io.Writer, data *ImageData) error {
 	b, _ := imageHeader{
 		Width:             uint32(data.width),
 		Height:            uint32(data.height),
@@ -79,12 +88,12 @@ func writeIHDR(w io.Writer, data *ImageData) {
 		FilterMethod:      noneFilter,
 		InterlaceMethod:   noInterlace,
 	}.MarshalBinary()
-	writeChunk(w, "IHDR", b)
+	return writeChunk(w, "IHDR", b)
 }
 
-func writePLTE(w io.Writer, data *ImageData) {
+func writePLTE(w io.Writer, data *ImageData) error {
 	b, _ := data.palette.MarshalBinary()
-	writeChunk(w, "PLTE", b)
+	return writeChunk(w, "PLTE", b)
 }
 
 func serialize(data *ImageData) []byte {
@@ -96,24 +105,41 @@ func serialize(data *ImageData) []byte {
 	return b
 }
 
-func writeIDAT(w io.Writer, data *ImageData) {
+func writeIDAT(w io.Writer, data *ImageData) error {
 	buf := &bytes.Buffer{}
 	zw, err := zlib.NewWriterLevel(buf, zlib.BestCompression)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer zw.Close()
-	zw.Write(serialize(data))
-	zw.Flush()
-	writeChunk(w, "IDAT", buf.Bytes())
+	if _, err := zw.Write(serialize(data)); err != nil {
+		return err
+	}
+	if err := zw.Flush(); err != nil {
+		return err
+	}
+	if err := writeChunk(w, "IDAT", buf.Bytes()); err != nil {
+		return err
+	}
+	return nil
 }
 
 // WritePng writes the image data to writer in PNG format.
 func WritePng(w io.Writer, data *ImageData) error {
-	writePngSignature(w)
-	writeIHDR(w, data)
-	writePLTE(w, data)
-	writeIDAT(w, data)
-	writeChunk(w, "IEND", nil)
+	if err := writePngSignature(w); err != nil {
+		return err
+	}
+	if err := writeIHDR(w, data); err != nil {
+		return err
+	}
+	if err := writePLTE(w, data); err != nil {
+		return err
+	}
+	if err := writeIDAT(w, data); err != nil {
+		return err
+	}
+	if err := writeChunk(w, "IEND", nil); err != nil {
+		return err
+	}
 	return nil
 }
