@@ -241,6 +241,10 @@ func readTableBasedImageData(r io.Reader, width int, height int) (*ImageData, er
 	if err != nil {
 		return nil, err
 	}
+	_, err = readByte(r)
+	if err != nil {
+		return nil, err
+	}
 	return &data, nil
 }
 
