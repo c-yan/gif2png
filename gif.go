@@ -275,6 +275,10 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 	}
 
 	data, err = readTableBasedImageData(r, int(i.ImageWidth), int(i.ImageHeight))
+	if err != nil {
+		return nil, err
+	}
+
 	if l.GlobalColorTableFlag {
 		data.palette = make([]Rgb, l.SizeOfGlobalColorTable)
 		data.palette.UnmarshalBinary(l.GlobalColorTable)
@@ -282,10 +286,6 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 	if i.LocalColorTableFlag {
 		data.palette = make([]Rgb, i.SizeOfLocalColorTable)
 		data.palette.UnmarshalBinary(i.LocalColorTable)
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	return data, nil
