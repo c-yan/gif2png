@@ -222,31 +222,33 @@ func readImageDescriptor(r io.Reader) (*imageDescriptor, error) {
 	return &i, nil
 }
 
-func readTableBasedImageData(r io.Reader, width int, height int) ([]byte, error) {
+func readTableBasedImageData(r io.Reader, width int, height int) (*ImageData, error) {
 	var (
-		result   []byte
+		data     ImageData
 		err      error
 		litWidth byte
 	)
-	result = make([]byte, width*height)
+	data.width = width
+	data.height = height
+	data.data = make([]byte, width*height)
 	litWidth, err = readByte(r)
 	if err != nil {
 		return nil, err
 	}
 	lr := lzw.NewReader(newBlockReader(r), lzw.LSB, int(litWidth))
 	defer lr.Close()
-	_, err = io.ReadFull(lr, result)
+	_, err = io.ReadFull(lr, data.data)
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return &data, nil
 }
 
 // ReadGif reads the image data from reader as GIF format.
 func ReadGif(r io.Reader) (*ImageData, error) {
 	var (
 		err               error
-		data              ImageData
+		data              *ImageData
 		h                 *header
 		l                 *logicalScreenDescriptor
 		i                 *imageDescriptor
@@ -272,8 +274,7 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 		return nil, err
 	}
 
-	data.width = int(l.LogicalScreenWidth)
-	data.height = int(l.LogicalScreenHeight)
+	data, err = readTableBasedImageData(r, int(i.ImageWidth), int(i.ImageHeight))
 	if l.GlobalColorTableFlag {
 		data.palette = make([]Rgb, l.SizeOfGlobalColorTable)
 		data.palette.UnmarshalBinary(l.GlobalColorTable)
@@ -283,10 +284,9 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 		data.palette.UnmarshalBinary(i.LocalColorTable)
 	}
 
-	data.data, err = readTableBasedImageData(r, data.width, data.height)
 	if err != nil {
 		return nil, err
 	}
 
-	return &data, nil
+	return data, nil
 }
