@@ -10,6 +10,8 @@ import (
 	"math"
 )
 
+var errNotImplemented = errors.New("Not implemented")
+
 type header struct {
 	Signature string
 	Version   string
@@ -98,6 +100,42 @@ func newBlockReader(r io.Reader) *blockReader {
 		bufLen:  0,
 		bufNext: 0,
 	}
+}
+
+type peekReader struct {
+	buf   [2]byte
+	index int
+	r     io.Reader
+}
+
+func newPeekReader(r io.Reader) *peekReader {
+	return &peekReader{
+		r:     r,
+		index: 0,
+	}
+}
+
+func (v *peekReader) Read(p []byte) (n int, err error) {
+	if len(p) < v.index {
+		return 0, errNotImplemented
+	}
+	for i := 0; i < v.index; i++ {
+		p[i] = v.buf[i]
+	}
+	n, err = v.r.Read(p[v.index:])
+	n += v.index
+	v.index = 0
+	return n, err
+}
+
+func (v *peekReader) Peek() (byte, error) {
+	b, err := readByte(v.r)
+	if err != nil {
+		return 0, nil
+	}
+	v.buf[v.index] = b
+	v.index++
+	return b, nil
 }
 
 func min(a, b int) int {
@@ -249,6 +287,24 @@ func readLogicalScreenDescriptor(r io.Reader) (*logicalScreenDescriptor, error) 
 	return &l, nil
 }
 
+func skipBlock(r io.Reader) error {
+	var buf [255]byte
+	_, err := r.Read(buf[:2])
+	if err != nil {
+		return err
+	}
+	br := newBlockReader(r)
+	for {
+		_, err := br.Read(buf[:])
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+
 func readImageDescriptor(r io.Reader) (*imageDescriptor, error) {
 	var (
 		i   imageDescriptor
@@ -304,8 +360,7 @@ func readTrailer(r io.Reader) error {
 		return err
 	}
 	if b != 0x3b {
-		fmt.Println(b)
-		return errors.New("This block is not trailer")
+		return fmt.Errorf("This block is not trailer, code=0x%02x", b)
 	}
 	return nil
 }
@@ -313,12 +368,12 @@ func readTrailer(r io.Reader) error {
 // ReadGif reads the image data from reader as GIF format.
 func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	var (
-		err               error
-		data              *ImageData
-		h                 *header
-		l                 *logicalScreenDescriptor
-		i                 *imageDescriptor
-		errNotImplemented = errors.New("Not implemented")
+		err  error
+		data *ImageData
+		h    *header
+		l    *logicalScreenDescriptor
+		i    *imageDescriptor
+		b    byte
 	)
 
 	h, err = readHeadser(r)
@@ -338,7 +393,66 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	if verbose {
 		log.Printf("Logical Screen Descriptor: %s\n", l)
 	}
-	i, err = readImageDescriptor(r)
+
+	pr := newPeekReader(r)
+	for {
+		b, err = pr.Peek()
+		if err != nil {
+			return nil, err
+		}
+		if b == 0x2C {
+			break
+		}
+		if b != 0x21 {
+			return nil, fmt.Errorf("Unknown code: 0x%02x", b)
+		}
+		b, err = pr.Peek()
+		if err != nil {
+			return nil, err
+		}
+		switch b {
+		case 0xF9:
+			//Graphic Control Extension
+			if verbose {
+				log.Println("Skip Graphic Control Extension")
+			}
+			err = skipBlock(pr)
+			if err != nil {
+				return nil, err
+			}
+		case 0xFE:
+			//Comment Extension
+			if verbose {
+				log.Println("Skip Comment Extension")
+			}
+			err = skipBlock(pr)
+			if err != nil {
+				return nil, err
+			}
+		case 0x01:
+			//Plain Text Extension
+			if verbose {
+				log.Println("Skip Plain Text Extension")
+			}
+			err = skipBlock(pr)
+			if err != nil {
+				return nil, err
+			}
+		case 0xFF:
+			//Application Extension
+			if verbose {
+				log.Println("Skip Application Extension")
+			}
+			err = skipBlock(pr)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			return nil, fmt.Errorf("Unknown code: 0x21%02x", b)
+		}
+	}
+
+	i, err = readImageDescriptor(pr)
 	if err != nil {
 		return nil, err
 	}
@@ -346,7 +460,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 		log.Printf("Image Descriptor: %s\n", i)
 	}
 
-	data, err = readTableBasedImageData(r, int(i.ImageWidth), int(i.ImageHeight))
+	data, err = readTableBasedImageData(pr, int(i.ImageWidth), int(i.ImageHeight))
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +474,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 		data.palette.UnmarshalBinary(i.LocalColorTable)
 	}
 
-	err = readTrailer(r)
+	err = readTrailer(pr)
 	if err != nil {
 		return nil, err
 	}
