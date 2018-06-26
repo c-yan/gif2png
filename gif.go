@@ -248,6 +248,18 @@ func readTableBasedImageData(r io.Reader, width int, height int) (*ImageData, er
 	return &data, nil
 }
 
+func readTrailer(r io.Reader) error {
+	b, err := readByte(r)
+	if err != nil {
+		return err
+	}
+	if b != 0x3b {
+		fmt.Println(b)
+		return errors.New("This block is not trailer")
+	}
+	return nil
+}
+
 // ReadGif reads the image data from reader as GIF format.
 func ReadGif(r io.Reader) (*ImageData, error) {
 	var (
@@ -290,6 +302,11 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 	if i.LocalColorTableFlag {
 		data.palette = make([]Rgb, i.SizeOfLocalColorTable)
 		data.palette.UnmarshalBinary(i.LocalColorTable)
+	}
+
+	err = readTrailer(r)
+	if err != nil {
+		return nil, err
 	}
 
 	return data, nil
