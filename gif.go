@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 )
 
@@ -37,6 +38,51 @@ type imageDescriptor struct {
 	SortFlag              bool
 	SizeOfLocalColorTable uint
 	LocalColorTable       []byte
+}
+
+func (v *header) String() string {
+	return fmt.Sprintf("%s%s", v.Signature, v.Version)
+}
+
+func (v *logicalScreenDescriptor) String() string {
+	return fmt.Sprintf(`
+		LogicalScreenWidth: %d
+		LogicalScreenHeight: %d
+		GlobalColorTableFlag: %v
+		ColorResolution: %d
+		SortFlag: %v
+		SizeOfGlobalColorTable: %d
+		BackgroundColorIndex: %d
+		PixelAspectRatio: %d`,
+		v.LogicalScreenWidth,
+		v.LogicalScreenHeight,
+		v.GlobalColorTableFlag,
+		v.ColorResolution, v.SortFlag,
+		v.SizeOfGlobalColorTable,
+		v.BackgroundColorIndex,
+		v.PixelAspectRatio)
+}
+
+func (v *imageDescriptor) String() string {
+	return fmt.Sprintf(`
+		ImageSeparator: %x
+		ImageLeftPosition: %d
+		ImageTopPosition: %d
+		ImageWidth: %d
+		ImageHeight: %d
+		LocalColorTableFlag: %v
+		InterlaceFlag: %v
+		SortFlag: %v
+		SizeOfLocalColorTable: %d`,
+		v.ImageSeparator,
+		v.ImageLeftPosition,
+		v.ImageTopPosition,
+		v.ImageWidth,
+		v.ImageHeight,
+		v.LocalColorTableFlag,
+		v.InterlaceFlag,
+		v.SortFlag,
+		v.SizeOfLocalColorTable)
 }
 
 type blockReader struct {
@@ -261,7 +307,7 @@ func readTrailer(r io.Reader) error {
 }
 
 // ReadGif reads the image data from reader as GIF format.
-func ReadGif(r io.Reader) (*ImageData, error) {
+func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	var (
 		err               error
 		data              *ImageData
@@ -275,8 +321,8 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 	if err != nil {
 		return nil, err
 	}
-	if h.Version != "87a" {
-		return nil, errNotImplemented
+	if verbose {
+		log.Printf("GIF Header: %s\n", h)
 	}
 	l, err = readLogicalScreenDescriptor(r)
 	if err != nil {
@@ -285,9 +331,15 @@ func ReadGif(r io.Reader) (*ImageData, error) {
 	if l.ColorResolution != 8 {
 		return nil, errNotImplemented
 	}
+	if verbose {
+		log.Printf("Logical Screen Descriptor: %s\n", l)
+	}
 	i, err = readImageDescriptor(r)
 	if err != nil {
 		return nil, err
+	}
+	if verbose {
+		log.Printf("Image Descriptor: %s\n", i)
 	}
 
 	data, err = readTableBasedImageData(r, int(i.ImageWidth), int(i.ImageHeight))

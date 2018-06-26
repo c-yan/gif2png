@@ -11,7 +11,7 @@ func readFile(path string) (*ImageData, error) {
 		return nil, err
 	}
 	defer in.Close()
-	return ReadGif(in)
+	return ReadGif(in, true)
 }
 
 func writeFile(path string, data *ImageData) error {
