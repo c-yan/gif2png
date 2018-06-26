@@ -118,13 +118,20 @@ func readByte(r io.Reader) (byte, error) {
 
 func (v *blockReader) readNextBlock() error {
 	blockSize, err := readByte(v.r)
+	if err == io.EOF {
+		return io.ErrUnexpectedEOF
+	}
 	if err != nil {
 		return err
 	}
 	if blockSize == 0 {
 		return io.EOF
 	}
-	if _, err = io.ReadFull(v.r, v.buf[:blockSize]); err != nil {
+	_, err = io.ReadFull(v.r, v.buf[:blockSize])
+	if err == io.EOF {
+		return io.ErrUnexpectedEOF
+	}
+	if err != nil {
 		return err
 	}
 	v.bufLen = int(blockSize)
@@ -135,9 +142,6 @@ func (v *blockReader) readNextBlock() error {
 func (v *blockReader) Read(p []byte) (n int, err error) {
 	if v.bufNext >= v.bufLen {
 		err = v.readNextBlock()
-		if err == io.EOF {
-			return 0, io.ErrUnexpectedEOF
-		}
 		if err != nil {
 			return 0, err
 		}
