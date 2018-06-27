@@ -400,84 +400,83 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 		if err != nil {
 			return nil, err
 		}
-		if b == 0x2C {
-			break
-		}
-		if b != 0x21 {
+
+		switch b {
+		case 0x2C:
+			i, err = readImageDescriptor(pr)
+			if err != nil {
+				return nil, err
+			}
+			if verbose {
+				log.Printf("Image Descriptor: %s\n", i)
+			}
+
+			data, err = readTableBasedImageData(pr, int(i.ImageWidth), int(i.ImageHeight))
+			if err != nil {
+				return nil, err
+			}
+
+			if l.GlobalColorTableFlag {
+				data.palette = make([]Rgb, l.SizeOfGlobalColorTable)
+				data.palette.UnmarshalBinary(l.GlobalColorTable)
+			}
+			if i.LocalColorTableFlag {
+				data.palette = make([]Rgb, i.SizeOfLocalColorTable)
+				data.palette.UnmarshalBinary(i.LocalColorTable)
+			}
+		case 0x21:
+			b, err = pr.Peek()
+			if err != nil {
+				return nil, err
+			}
+			switch b {
+			case 0xF9:
+				//Graphic Control Extension
+				if verbose {
+					log.Println("Skip Graphic Control Extension")
+				}
+				err = skipBlock(pr)
+				if err != nil {
+					return nil, err
+				}
+			case 0xFE:
+				//Comment Extension
+				if verbose {
+					log.Println("Skip Comment Extension")
+				}
+				err = skipBlock(pr)
+				if err != nil {
+					return nil, err
+				}
+			case 0x01:
+				//Plain Text Extension
+				if verbose {
+					log.Println("Skip Plain Text Extension")
+				}
+				err = skipBlock(pr)
+				if err != nil {
+					return nil, err
+				}
+			case 0xFF:
+				//Application Extension
+				if verbose {
+					log.Println("Skip Application Extension")
+				}
+				err = skipBlock(pr)
+				if err != nil {
+					return nil, err
+				}
+			default:
+				return nil, fmt.Errorf("Unknown code: 0x21%02x", b)
+			}
+		case 0x3b:
+			err = readTrailer(pr)
+			if err != nil {
+				return nil, err
+			}
+			return data, nil
+		default:
 			return nil, fmt.Errorf("Unknown code: 0x%02x", b)
 		}
-		b, err = pr.Peek()
-		if err != nil {
-			return nil, err
-		}
-		switch b {
-		case 0xF9:
-			//Graphic Control Extension
-			if verbose {
-				log.Println("Skip Graphic Control Extension")
-			}
-			err = skipBlock(pr)
-			if err != nil {
-				return nil, err
-			}
-		case 0xFE:
-			//Comment Extension
-			if verbose {
-				log.Println("Skip Comment Extension")
-			}
-			err = skipBlock(pr)
-			if err != nil {
-				return nil, err
-			}
-		case 0x01:
-			//Plain Text Extension
-			if verbose {
-				log.Println("Skip Plain Text Extension")
-			}
-			err = skipBlock(pr)
-			if err != nil {
-				return nil, err
-			}
-		case 0xFF:
-			//Application Extension
-			if verbose {
-				log.Println("Skip Application Extension")
-			}
-			err = skipBlock(pr)
-			if err != nil {
-				return nil, err
-			}
-		default:
-			return nil, fmt.Errorf("Unknown code: 0x21%02x", b)
-		}
 	}
-
-	i, err = readImageDescriptor(pr)
-	if err != nil {
-		return nil, err
-	}
-	if verbose {
-		log.Printf("Image Descriptor: %s\n", i)
-	}
-
-	data, err = readTableBasedImageData(pr, int(i.ImageWidth), int(i.ImageHeight))
-	if err != nil {
-		return nil, err
-	}
-
-	if l.GlobalColorTableFlag {
-		data.palette = make([]Rgb, l.SizeOfGlobalColorTable)
-		data.palette.UnmarshalBinary(l.GlobalColorTable)
-	}
-	if i.LocalColorTableFlag {
-		data.palette = make([]Rgb, i.SizeOfLocalColorTable)
-		data.palette.UnmarshalBinary(i.LocalColorTable)
-	}
-
-	err = readTrailer(pr)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
 }
