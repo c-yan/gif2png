@@ -328,22 +328,20 @@ func readImageDescriptor(r io.Reader) (*imageDescriptor, error) {
 	return &i, nil
 }
 
-func readTableBasedImageData(r io.Reader, width int, height int) (*ImageData, error) {
+func readTableBasedImageData(r io.Reader, width int, height int) (*ImageFrame, error) {
 	var (
-		data     ImageData
 		err      error
 		litWidth byte
+		frame    ImageFrame
 	)
-	data.width = width
-	data.height = height
-	data.data = make([]byte, width*height)
+	frame.data = make([]byte, width*height)
 	litWidth, err = readByte(r)
 	if err != nil {
 		return nil, err
 	}
 	lr := lzw.NewReader(newBlockReader(r), lzw.LSB, int(litWidth))
 	defer lr.Close()
-	_, err = io.ReadFull(lr, data.data)
+	_, err = io.ReadFull(lr, frame.data)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +349,7 @@ func readTableBasedImageData(r io.Reader, width int, height int) (*ImageData, er
 	if err != nil {
 		return nil, err
 	}
-	return &data, nil
+	return &frame, nil
 }
 
 func readTrailer(r io.Reader) error {
@@ -369,7 +367,7 @@ func readTrailer(r io.Reader) error {
 func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	var (
 		err  error
-		data *ImageData
+		data ImageData
 		h    *header
 		l    *logicalScreenDescriptor
 		i    *imageDescriptor
@@ -393,6 +391,10 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	if verbose {
 		log.Printf("Logical Screen Descriptor: %s\n", l)
 	}
+	if l.GlobalColorTableFlag {
+		data.palette = make([]Rgb, l.SizeOfGlobalColorTable)
+		data.palette.UnmarshalBinary(l.GlobalColorTable)
+	}
 
 	pr := newPeekReader(r)
 	for {
@@ -411,19 +413,20 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				log.Printf("Image Descriptor: %s\n", i)
 			}
 
-			data, err = readTableBasedImageData(pr, int(i.ImageWidth), int(i.ImageHeight))
+			data.width = int(i.ImageWidth)
+			data.height = int(i.ImageHeight)
+
+			frame, err := readTableBasedImageData(pr, int(i.ImageWidth), int(i.ImageHeight))
 			if err != nil {
 				return nil, err
 			}
 
-			if l.GlobalColorTableFlag {
-				data.palette = make([]Rgb, l.SizeOfGlobalColorTable)
-				data.palette.UnmarshalBinary(l.GlobalColorTable)
-			}
 			if i.LocalColorTableFlag {
-				data.palette = make([]Rgb, i.SizeOfLocalColorTable)
-				data.palette.UnmarshalBinary(i.LocalColorTable)
+				frame.palette = make([]Rgb, i.SizeOfLocalColorTable)
+				frame.palette.UnmarshalBinary(i.LocalColorTable)
 			}
+
+			data.frames = append(data.frames, *frame)
 		case 0x21:
 			b, err = pr.Peek()
 			if err != nil {
@@ -474,7 +477,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			if err != nil {
 				return nil, err
 			}
-			return data, nil
+			return &data, nil
 		default:
 			return nil, fmt.Errorf("Unknown code: 0x%02x", b)
 		}

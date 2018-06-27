@@ -38,10 +38,16 @@ type Rgb struct {
 // Palette holds palette data.
 type Palette []Rgb
 
-// ImageData holds picture data.
+// ImageFrame holds picture data.
+type ImageFrame struct {
+	palette Palette
+	data    []byte
+}
+
+// ImageData holds picture frames.
 type ImageData struct {
 	width   int
 	height  int
 	palette Palette
-	data    []byte
+	frames  []ImageFrame
 }

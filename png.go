@@ -92,7 +92,12 @@ func writeIHDR(w io.Writer, data *ImageData) error {
 }
 
 func writePLTE(w io.Writer, data *ImageData) error {
-	b, _ := data.palette.MarshalBinary()
+	var b []byte
+	if data.palette != nil {
+		b, _ = data.palette.MarshalBinary()
+	} else {
+		b, _ = data.frames[0].palette.MarshalBinary()
+	}
 	return writeChunk(w, "PLTE", b)
 }
 
@@ -100,7 +105,7 @@ func serialize(data *ImageData) []byte {
 	b := make([]byte, 0, (data.width+1)*data.height)
 	for i := 0; i < data.height; i++ {
 		b = append(b, 0)
-		b = append(b, data.data[data.width*i:data.width*(i+1)]...)
+		b = append(b, data.frames[0].data[data.width*i:data.width*(i+1)]...)
 	}
 	return b
 }
