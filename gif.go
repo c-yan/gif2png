@@ -216,7 +216,11 @@ func (v *logicalScreenDescriptor) UnmarshalBinary(data []byte) error {
 	v.GlobalColorTableFlag = ((data[4] & 0x80) >> 7) == 1
 	v.ColorResolution = ((data[4] & 0x70) >> 4) + 1
 	v.SortFlag = ((data[4] & 0x8) >> 3) == 1
-	v.SizeOfGlobalColorTable = uint(math.Pow(2, float64(data[4]&0x7+1)))
+	if v.GlobalColorTableFlag {
+		v.SizeOfGlobalColorTable = uint(math.Pow(2, float64(data[4]&0x7+1)))
+	} else {
+		v.SizeOfGlobalColorTable = 0
+	}
 	v.BackgroundColorIndex = data[5]
 	v.PixelAspectRatio = data[6]
 	return nil
@@ -234,7 +238,11 @@ func (v *imageDescriptor) UnmarshalBinary(data []byte) error {
 	v.LocalColorTableFlag = ((data[9] & 0x80) >> 7) == 1
 	v.InterlaceFlag = ((data[9] & 0x40) >> 6) == 1
 	v.SortFlag = ((data[9] & 0x20) >> 5) == 1
-	v.SizeOfLocalColorTable = uint(math.Pow(2, float64(data[9]&0x7+1)))
+	if v.LocalColorTableFlag {
+		v.SizeOfLocalColorTable = uint(math.Pow(2, float64(data[9]&0x7+1)))
+	} else {
+		v.SizeOfLocalColorTable = 0
+	}
 	return nil
 }
 
