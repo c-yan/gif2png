@@ -373,23 +373,17 @@ func readTrailer(r io.Reader) error {
 
 // ReadGif reads the image data from reader as GIF format.
 func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
-	var (
-		err  error
-		data ImageData
-		h    *header
-		l    *logicalScreenDescriptor
-		i    *imageDescriptor
-		b    byte
-	)
+	var data ImageData
 
-	h, err = readHeadser(r)
+	h, err := readHeadser(r)
 	if err != nil {
 		return nil, err
 	}
 	if verbose {
 		log.Printf("GIF Header: %s\n", h)
 	}
-	l, err = readLogicalScreenDescriptor(r)
+
+	l, err := readLogicalScreenDescriptor(r)
 	if err != nil {
 		return nil, err
 	}
@@ -406,14 +400,14 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 
 	pr := newPeekReader(r)
 	for {
-		b, err = pr.Peek()
+		b, err := pr.Peek()
 		if err != nil {
 			return nil, err
 		}
 
 		switch b {
 		case 0x2C:
-			i, err = readImageDescriptor(pr)
+			i, err := readImageDescriptor(pr)
 			if err != nil {
 				return nil, err
 			}
@@ -436,17 +430,18 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 
 			data.frames = append(data.frames, *frame)
 		case 0x21:
-			b, err = pr.Peek()
+			b, err := pr.Peek()
 			if err != nil {
 				return nil, err
 			}
+
 			switch b {
 			case 0xF9:
 				//Graphic Control Extension
 				if verbose {
 					log.Println("Skip Graphic Control Extension")
 				}
-				err = skipBlock(pr)
+				err := skipBlock(pr)
 				if err != nil {
 					return nil, err
 				}
@@ -455,7 +450,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				if verbose {
 					log.Println("Skip Comment Extension")
 				}
-				err = skipBlock(pr)
+				err := skipBlock(pr)
 				if err != nil {
 					return nil, err
 				}
@@ -464,7 +459,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				if verbose {
 					log.Println("Skip Plain Text Extension")
 				}
-				err = skipBlock(pr)
+				err := skipBlock(pr)
 				if err != nil {
 					return nil, err
 				}
@@ -473,7 +468,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				if verbose {
 					log.Println("Skip Application Extension")
 				}
-				err = skipBlock(pr)
+				err := skipBlock(pr)
 				if err != nil {
 					return nil, err
 				}
@@ -481,7 +476,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				return nil, fmt.Errorf("Unknown code: 0x21%02x", b)
 			}
 		case 0x3b:
-			err = readTrailer(pr)
+			err := readTrailer(pr)
 			if err != nil {
 				return nil, err
 			}
