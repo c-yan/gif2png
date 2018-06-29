@@ -42,6 +42,14 @@ type imageDescriptor struct {
 	LocalColorTable       []byte
 }
 
+type graphicControlExtension struct {
+	DisposalMethod        int
+	UserInputFlag         bool
+	TransparentColorFlag  bool
+	DelayTime             uint16
+	TransparentColorIndex byte
+}
+
 func (v *header) String() string {
 	return fmt.Sprintf("%s%s", v.Signature, v.Version)
 }
@@ -85,6 +93,20 @@ func (v *imageDescriptor) String() string {
 		v.InterlaceFlag,
 		v.SortFlag,
 		v.SizeOfLocalColorTable)
+}
+
+func (v *graphicControlExtension) String() string {
+	return fmt.Sprintf(`
+		DisposalMethod: %d
+		UserInputFlag: %v
+		TransparentColorFlag: %v
+		DelayTime: %d
+		TransparentColorIndex: %d`,
+		v.DisposalMethod,
+		v.UserInputFlag,
+		v.TransparentColorFlag,
+		v.DelayTime,
+		v.TransparentColorIndex)
 }
 
 type blockReader struct {
@@ -196,6 +218,7 @@ const (
 	headerSize                  = 6
 	logicalScreenDescriptorSize = 7
 	imageDescriptorSize         = 10
+	graphicControlExtensionSize = 4
 )
 
 func (v *header) UnmarshalBinary(data []byte) error {
@@ -243,6 +266,18 @@ func (v *imageDescriptor) UnmarshalBinary(data []byte) error {
 	} else {
 		v.SizeOfLocalColorTable = 0
 	}
+	return nil
+}
+
+func (v *graphicControlExtension) UnmarshalBinary(data []byte) error {
+	if len(data) < graphicControlExtensionSize {
+		return fmt.Errorf("Len is not enough. required: %d, actual: %d", graphicControlExtensionSize, len(data))
+	}
+	v.DisposalMethod = int(data[0]&0x1c) >> 2
+	v.UserInputFlag = data[0]&2>>1 == 1
+	v.TransparentColorFlag = data[0]&1 == 1
+	v.DelayTime = binary.LittleEndian.Uint16(data[1:])
+	v.TransparentColorIndex = data[3]
 	return nil
 }
 
@@ -360,6 +395,27 @@ func readTableBasedImageData(r io.Reader, width int, height int) (*ImageFrame, e
 	return &frame, nil
 }
 
+func readGraphicControlExtension(r io.Reader) (*graphicControlExtension, error) {
+	var (
+		g   graphicControlExtension
+		buf [graphicControlExtensionSize]byte
+	)
+	_, err := io.ReadFull(r, buf[:2])
+	if err != nil {
+		return nil, err
+	}
+	_, err = io.ReadFull(newBlockReader(r), buf[:])
+	if err != nil {
+		return nil, err
+	}
+	g.UnmarshalBinary(buf[:])
+	_, err = readByte(r)
+	if err != nil {
+		return nil, err
+	}
+	return &g, nil
+}
+
 func readTrailer(r io.Reader) error {
 	b, err := readByte(r)
 	if err != nil {
@@ -438,12 +494,12 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			switch b {
 			case 0xF9:
 				//Graphic Control Extension
-				if verbose {
-					log.Println("Skip Graphic Control Extension")
-				}
-				err := skipBlock(pr)
+				g, err := readGraphicControlExtension(pr)
 				if err != nil {
 					return nil, err
+				}
+				if verbose {
+					log.Printf("Graphic Control Extension: %s\n", g)
 				}
 			case 0xFE:
 				//Comment Extension
