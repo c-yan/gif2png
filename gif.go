@@ -372,13 +372,10 @@ func readImageDescriptor(r io.Reader) (*imageDescriptor, error) {
 }
 
 func readTableBasedImageData(r io.Reader, width int, height int) (*ImageFrame, error) {
-	var (
-		err      error
-		litWidth byte
-		frame    ImageFrame
-	)
+	var frame ImageFrame
+
 	frame.data = make([]byte, width*height)
-	litWidth, err = readByte(r)
+	litWidth, err := readByte(r)
 	if err != nil {
 		return nil, err
 	}
