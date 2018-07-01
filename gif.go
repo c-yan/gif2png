@@ -50,6 +50,11 @@ type graphicControlExtension struct {
 	TransparentColorIndex byte
 }
 
+type applicationExtension struct {
+	ApplicationIdentifier         [8]byte
+	ApplicationAuthenticationCode [3]byte
+}
+
 func (v *header) String() string {
 	return fmt.Sprintf("%s%s", v.Signature, v.Version)
 }
@@ -107,6 +112,10 @@ func (v *graphicControlExtension) String() string {
 		v.TransparentColorFlag,
 		v.DelayTime,
 		v.TransparentColorIndex)
+}
+
+func (v *applicationExtension) String() string {
+	return fmt.Sprintf("%s %s", v.ApplicationIdentifier, v.ApplicationAuthenticationCode)
 }
 
 type blockReader struct {
@@ -219,6 +228,7 @@ const (
 	logicalScreenDescriptorSize = 7
 	imageDescriptorSize         = 10
 	graphicControlExtensionSize = 4
+	applicationExtensionSize    = 11
 )
 
 func (v *header) UnmarshalBinary(data []byte) error {
@@ -278,6 +288,15 @@ func (v *graphicControlExtension) UnmarshalBinary(data []byte) error {
 	v.TransparentColorFlag = data[0]&1 == 1
 	v.DelayTime = binary.LittleEndian.Uint16(data[1:])
 	v.TransparentColorIndex = data[3]
+	return nil
+}
+
+func (v *applicationExtension) UnmarshalBinary(data []byte) error {
+	if len(data) < applicationExtensionSize {
+		return fmt.Errorf("Len is not enough. required: %d, actual: %d", applicationExtensionSize, len(data))
+	}
+	copy(v.ApplicationIdentifier[:], data[:8])
+	copy(v.ApplicationAuthenticationCode[:], data[8:11])
 	return nil
 }
 
@@ -413,6 +432,40 @@ func readGraphicControlExtension(r io.Reader) (*graphicControlExtension, error) 
 	return &g, nil
 }
 
+func readApplicationExtension(r io.Reader) (*applicationExtension, error) {
+	var (
+		a   applicationExtension
+		buf [applicationExtensionSize]byte
+	)
+	_, err := io.ReadFull(r, buf[:2])
+	if err != nil {
+		return nil, err
+	}
+	n, err := readByte(r)
+	if err != nil {
+		return nil, err
+	}
+	if n != applicationExtensionSize {
+		return nil, fmt.Errorf("Unexpected block size. expected: %d, actual: %d", applicationExtensionSize, n)
+	}
+
+	_, err = io.ReadFull(r, buf[:])
+	if err != nil {
+		return nil, err
+	}
+	a.UnmarshalBinary(buf[:])
+	br := newBlockReader(r)
+	for {
+		_, err := br.Read(buf[:])
+		if err == io.EOF {
+			return &a, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+}
+
 func readTrailer(r io.Reader) error {
 	b, err := readByte(r)
 	if err != nil {
@@ -518,12 +571,12 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				}
 			case 0xFF:
 				//Application Extension
-				if verbose {
-					log.Println("Skip Application Extension")
-				}
-				err := skipBlock(pr)
+				a, err := readApplicationExtension(pr)
 				if err != nil {
 					return nil, err
+				}
+				if verbose {
+					log.Printf("Application Extension: %s\n", a)
 				}
 			default:
 				return nil, fmt.Errorf("Unknown code: 0x21%02x", b)
