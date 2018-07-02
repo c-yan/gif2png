@@ -30,7 +30,6 @@ type logicalScreenDescriptor struct {
 }
 
 type imageDescriptor struct {
-	ImageSeparator        byte
 	ImageLeftPosition     uint16
 	ImageTopPosition      uint16
 	ImageWidth            uint16
@@ -80,7 +79,6 @@ func (v *logicalScreenDescriptor) String() string {
 
 func (v *imageDescriptor) String() string {
 	return fmt.Sprintf(`
-		ImageSeparator: %x
 		ImageLeftPosition: %d
 		ImageTopPosition: %d
 		ImageWidth: %d
@@ -89,7 +87,6 @@ func (v *imageDescriptor) String() string {
 		InterlaceFlag: %v
 		SortFlag: %v
 		SizeOfLocalColorTable: %d`,
-		v.ImageSeparator,
 		v.ImageLeftPosition,
 		v.ImageTopPosition,
 		v.ImageWidth,
@@ -131,42 +128,6 @@ func newBlockReader(r io.Reader) *blockReader {
 		bufLen:  0,
 		bufNext: 0,
 	}
-}
-
-type peekReader struct {
-	buf   [2]byte
-	index int
-	r     io.Reader
-}
-
-func newPeekReader(r io.Reader) *peekReader {
-	return &peekReader{
-		r:     r,
-		index: 0,
-	}
-}
-
-func (v *peekReader) Read(p []byte) (n int, err error) {
-	if len(p) < v.index {
-		return 0, errNotImplemented
-	}
-	for i := 0; i < v.index; i++ {
-		p[i] = v.buf[i]
-	}
-	n, err = v.r.Read(p[v.index:])
-	n += v.index
-	v.index = 0
-	return n, err
-}
-
-func (v *peekReader) Peek() (byte, error) {
-	b, err := readByte(v.r)
-	if err != nil {
-		return 0, nil
-	}
-	v.buf[v.index] = b
-	v.index++
-	return b, nil
 }
 
 func min(a, b int) int {
@@ -226,7 +187,7 @@ func (v *blockReader) Read(p []byte) (n int, err error) {
 const (
 	headerSize                  = 6
 	logicalScreenDescriptorSize = 7
-	imageDescriptorSize         = 10
+	imageDescriptorSize         = 9
 	graphicControlExtensionSize = 4
 	applicationExtensionSize    = 11
 )
@@ -263,16 +224,15 @@ func (v *imageDescriptor) UnmarshalBinary(data []byte) error {
 	if len(data) < imageDescriptorSize {
 		return fmt.Errorf("Len is not enough. required: %d, actual: %d", imageDescriptorSize, len(data))
 	}
-	v.ImageSeparator = data[0]
-	v.ImageLeftPosition = binary.LittleEndian.Uint16(data[1:])
-	v.ImageTopPosition = binary.LittleEndian.Uint16(data[3:])
-	v.ImageWidth = binary.LittleEndian.Uint16(data[5:])
-	v.ImageHeight = binary.LittleEndian.Uint16(data[7:])
-	v.LocalColorTableFlag = ((data[9] & 0x80) >> 7) == 1
-	v.InterlaceFlag = ((data[9] & 0x40) >> 6) == 1
-	v.SortFlag = ((data[9] & 0x20) >> 5) == 1
+	v.ImageLeftPosition = binary.LittleEndian.Uint16(data[0:])
+	v.ImageTopPosition = binary.LittleEndian.Uint16(data[2:])
+	v.ImageWidth = binary.LittleEndian.Uint16(data[4:])
+	v.ImageHeight = binary.LittleEndian.Uint16(data[6:])
+	v.LocalColorTableFlag = ((data[8] & 0x80) >> 7) == 1
+	v.InterlaceFlag = ((data[8] & 0x40) >> 6) == 1
+	v.SortFlag = ((data[8] & 0x20) >> 5) == 1
 	if v.LocalColorTableFlag {
-		v.SizeOfLocalColorTable = uint(math.Pow(2, float64(data[9]&0x7+1)))
+		v.SizeOfLocalColorTable = uint(math.Pow(2, float64(data[8]&0x7+1)))
 	} else {
 		v.SizeOfLocalColorTable = 0
 	}
@@ -351,10 +311,6 @@ func readLogicalScreenDescriptor(r io.Reader) (*logicalScreenDescriptor, error) 
 
 func skipBlock(r io.Reader) error {
 	var buf [255]byte
-	_, err := r.Read(buf[:2])
-	if err != nil {
-		return err
-	}
 	br := newBlockReader(r)
 	for {
 		_, err := br.Read(buf[:])
@@ -416,11 +372,7 @@ func readGraphicControlExtension(r io.Reader) (*graphicControlExtension, error) 
 		g   graphicControlExtension
 		buf [graphicControlExtensionSize]byte
 	)
-	_, err := io.ReadFull(r, buf[:2])
-	if err != nil {
-		return nil, err
-	}
-	_, err = io.ReadFull(newBlockReader(r), buf[:])
+	_, err := io.ReadFull(newBlockReader(r), buf[:])
 	if err != nil {
 		return nil, err
 	}
@@ -437,10 +389,6 @@ func readApplicationExtension(r io.Reader) (*applicationExtension, error) {
 		a   applicationExtension
 		buf [applicationExtensionSize]byte
 	)
-	_, err := io.ReadFull(r, buf[:2])
-	if err != nil {
-		return nil, err
-	}
 	n, err := readByte(r)
 	if err != nil {
 		return nil, err
@@ -464,17 +412,6 @@ func readApplicationExtension(r io.Reader) (*applicationExtension, error) {
 			return nil, err
 		}
 	}
-}
-
-func readTrailer(r io.Reader) error {
-	b, err := readByte(r)
-	if err != nil {
-		return err
-	}
-	if b != 0x3b {
-		return fmt.Errorf("This block is not trailer, code=0x%02x", b)
-	}
-	return nil
 }
 
 // ReadGif reads the image data from reader as GIF format.
@@ -504,16 +441,15 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 		data.palette.UnmarshalBinary(l.GlobalColorTable)
 	}
 
-	pr := newPeekReader(r)
 	for {
-		b, err := pr.Peek()
+		b, err := readByte(r)
 		if err != nil {
 			return nil, err
 		}
 
 		switch b {
 		case 0x2C:
-			i, err := readImageDescriptor(pr)
+			i, err := readImageDescriptor(r)
 			if err != nil {
 				return nil, err
 			}
@@ -524,7 +460,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			data.width = int(i.ImageWidth)
 			data.height = int(i.ImageHeight)
 
-			frame, err := readTableBasedImageData(pr, int(i.ImageWidth), int(i.ImageHeight))
+			frame, err := readTableBasedImageData(r, int(i.ImageWidth), int(i.ImageHeight))
 			if err != nil {
 				return nil, err
 			}
@@ -536,7 +472,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 
 			data.frames = append(data.frames, *frame)
 		case 0x21:
-			b, err := pr.Peek()
+			b, err := readByte(r)
 			if err != nil {
 				return nil, err
 			}
@@ -544,7 +480,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			switch b {
 			case 0xF9:
 				//Graphic Control Extension
-				g, err := readGraphicControlExtension(pr)
+				g, err := readGraphicControlExtension(r)
 				if err != nil {
 					return nil, err
 				}
@@ -556,7 +492,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				if verbose {
 					log.Println("Skip Comment Extension")
 				}
-				err := skipBlock(pr)
+				err := skipBlock(r)
 				if err != nil {
 					return nil, err
 				}
@@ -565,13 +501,13 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				if verbose {
 					log.Println("Skip Plain Text Extension")
 				}
-				err := skipBlock(pr)
+				err := skipBlock(r)
 				if err != nil {
 					return nil, err
 				}
 			case 0xFF:
 				//Application Extension
-				a, err := readApplicationExtension(pr)
+				a, err := readApplicationExtension(r)
 				if err != nil {
 					return nil, err
 				}
@@ -582,10 +518,6 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				return nil, fmt.Errorf("Unknown code: 0x21%02x", b)
 			}
 		case 0x3b:
-			err := readTrailer(pr)
-			if err != nil {
-				return nil, err
-			}
 			return &data, nil
 		default:
 			return nil, fmt.Errorf("Unknown code: 0x%02x", b)
