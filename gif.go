@@ -412,6 +412,22 @@ func readApplicationExtension(r io.Reader) (*applicationExtension, error) {
 	return &a, nil
 }
 
+func deinterlace(frame *ImageFrame, width, height int) []byte {
+	startingRow := [4]int{0, 4, 2, 1}
+	rowSkipSize := [4]int{8, 8, 4, 2}
+
+	d := make([]byte, width*height)
+	dy := 0
+
+	for i := 0; i < 4; i++ {
+		for sy := startingRow[i]; sy < height; sy += rowSkipSize[i] {
+			copy(d[dy*width:(dy+1)*width], frame.data[sy*width:(sy+1)*width])
+		}
+	}
+
+	return d
+}
+
 // ReadGif reads the image data from reader as GIF format.
 func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	var data ImageData
@@ -466,6 +482,10 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			if i.LocalColorTableFlag {
 				frame.palette = make([]Rgb, i.SizeOfLocalColorTable)
 				frame.palette.UnmarshalBinary(i.LocalColorTable)
+			}
+
+			if i.InterlaceFlag {
+				frame.data = deinterlace(frame, int(i.ImageWidth), int(i.ImageHeight))
 			}
 
 			data.frames = append(data.frames, *frame)
