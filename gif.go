@@ -207,11 +207,11 @@ func (v *logicalScreenDescriptor) UnmarshalBinary(data []byte) error {
 	}
 	v.LogicalScreenWidth = binary.LittleEndian.Uint16(data[:])
 	v.LogicalScreenHeight = binary.LittleEndian.Uint16(data[2:])
-	v.GlobalColorTableFlag = ((data[4] & 0x80) >> 7) == 1
-	v.ColorResolution = ((data[4] & 0x70) >> 4) + 1
-	v.SortFlag = ((data[4] & 0x8) >> 3) == 1
+	v.GlobalColorTableFlag = data[4]>>7&1 == 1
+	v.ColorResolution = data[4]>>4&7 + 1
+	v.SortFlag = data[4]>>3&1 == 1
 	if v.GlobalColorTableFlag {
-		v.SizeOfGlobalColorTable = uint(math.Pow(2, float64(data[4]&0x7+1)))
+		v.SizeOfGlobalColorTable = uint(math.Pow(2, float64(data[4]&7+1)))
 	} else {
 		v.SizeOfGlobalColorTable = 0
 	}
@@ -228,11 +228,11 @@ func (v *imageDescriptor) UnmarshalBinary(data []byte) error {
 	v.ImageTopPosition = binary.LittleEndian.Uint16(data[2:])
 	v.ImageWidth = binary.LittleEndian.Uint16(data[4:])
 	v.ImageHeight = binary.LittleEndian.Uint16(data[6:])
-	v.LocalColorTableFlag = ((data[8] & 0x80) >> 7) == 1
-	v.InterlaceFlag = ((data[8] & 0x40) >> 6) == 1
-	v.SortFlag = ((data[8] & 0x20) >> 5) == 1
+	v.LocalColorTableFlag = data[8]>>7&1 == 1
+	v.InterlaceFlag = data[8]>>6&1 == 1
+	v.SortFlag = data[8]>>5&1 == 1
 	if v.LocalColorTableFlag {
-		v.SizeOfLocalColorTable = uint(math.Pow(2, float64(data[8]&0x7+1)))
+		v.SizeOfLocalColorTable = uint(math.Pow(2, float64(data[8]&7+1)))
 	} else {
 		v.SizeOfLocalColorTable = 0
 	}
@@ -243,8 +243,8 @@ func (v *graphicControlExtension) UnmarshalBinary(data []byte) error {
 	if len(data) < graphicControlExtensionSize {
 		return fmt.Errorf("Len is not enough. required: %d, actual: %d", graphicControlExtensionSize, len(data))
 	}
-	v.DisposalMethod = int(data[0]&0x1c) >> 2
-	v.UserInputFlag = data[0]&2>>1 == 1
+	v.DisposalMethod = int(data[0] >> 2 & 7)
+	v.UserInputFlag = data[0]>>1&1 == 1
 	v.TransparentColorFlag = data[0]&1 == 1
 	v.DelayTime = binary.LittleEndian.Uint16(data[1:])
 	v.TransparentColorIndex = data[3]
