@@ -40,6 +40,8 @@ type Palette []Rgb
 
 // ImageFrame holds picture data.
 type ImageFrame struct {
+	width   int
+	height  int
 	palette Palette
 	data    []byte
 }

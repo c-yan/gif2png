@@ -349,6 +349,9 @@ func readImageDescriptor(r io.Reader) (*imageDescriptor, error) {
 func readTableBasedImageData(r io.Reader, width int, height int) (*ImageFrame, error) {
 	var frame ImageFrame
 
+	frame.width = width
+	frame.height = height
+
 	frame.data = make([]byte, width*height)
 	litWidth, err := readByte(r)
 	if err != nil {
@@ -444,6 +447,10 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	data.width = int(l.LogicalScreenWidth)
+	data.height = int(l.LogicalScreenHeight)
+
 	if l.ColorResolution != 8 {
 		return nil, errNotImplemented
 	}
@@ -470,9 +477,6 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			if verbose {
 				log.Printf("Image Descriptor: %s\n", i)
 			}
-
-			data.width = int(i.ImageWidth)
-			data.height = int(i.ImageHeight)
 
 			frame, err := readTableBasedImageData(r, int(i.ImageWidth), int(i.ImageHeight))
 			if err != nil {

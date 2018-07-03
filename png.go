@@ -80,8 +80,8 @@ func writeChunk(w io.Writer, chunkType string, data []byte) error {
 
 func writeIHDR(w io.Writer, data *ImageData) error {
 	b, _ := imageHeader{
-		Width:             uint32(data.width),
-		Height:            uint32(data.height),
+		Width:             uint32(data.frames[0].width),
+		Height:            uint32(data.frames[0].height),
 		BitDepth:          8,
 		ColorType:         paletteUsed | trueColorUsed,
 		CompressionMethod: deflateCompression,
@@ -102,10 +102,10 @@ func writePLTE(w io.Writer, data *ImageData) error {
 }
 
 func serialize(data *ImageData) []byte {
-	b := make([]byte, 0, (data.width+1)*data.height)
+	b := make([]byte, 0, (data.frames[0].width+1)*data.frames[0].height)
 	for i := 0; i < data.height; i++ {
 		b = append(b, 0)
-		b = append(b, data.frames[0].data[data.width*i:data.width*(i+1)]...)
+		b = append(b, data.frames[0].data[data.frames[0].width*i:data.frames[0].width*(i+1)]...)
 	}
 	return b
 }
