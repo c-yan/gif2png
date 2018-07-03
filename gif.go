@@ -360,7 +360,8 @@ func readTableBasedImageData(r io.Reader, width int, height int) (*ImageFrame, e
 	if err != nil {
 		return nil, err
 	}
-	_, err = readByte(r)
+
+	err = skipBlock(r)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +378,8 @@ func readGraphicControlExtension(r io.Reader) (*graphicControlExtension, error) 
 		return nil, err
 	}
 	g.UnmarshalBinary(buf[:])
-	_, err = readByte(r)
+
+	err = skipBlock(r)
 	if err != nil {
 		return nil, err
 	}
@@ -402,16 +404,12 @@ func readApplicationExtension(r io.Reader) (*applicationExtension, error) {
 		return nil, err
 	}
 	a.UnmarshalBinary(buf[:])
-	br := newBlockReader(r)
-	for {
-		_, err := br.Read(buf[:])
-		if err == io.EOF {
-			return &a, nil
-		}
-		if err != nil {
-			return nil, err
-		}
+
+	err = skipBlock(r)
+	if err != nil {
+		return nil, err
 	}
+	return &a, nil
 }
 
 // ReadGif reads the image data from reader as GIF format.
