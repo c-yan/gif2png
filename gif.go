@@ -482,6 +482,8 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			if err != nil {
 				return nil, err
 			}
+			frame.xOffset = int(i.ImageLeftPosition)
+			frame.yOffset = int(i.ImageTopPosition)
 
 			if i.LocalColorTableFlag {
 				frame.palette = make([]Rgb, i.SizeOfLocalColorTable)

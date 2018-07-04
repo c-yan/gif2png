@@ -42,6 +42,8 @@ type Palette []Rgb
 type ImageFrame struct {
 	width   int
 	height  int
+	xOffset int
+	yOffset int
 	palette Palette
 	data    []byte
 }
