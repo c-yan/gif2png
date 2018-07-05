@@ -462,6 +462,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 		data.palette.UnmarshalBinary(l.GlobalColorTable)
 	}
 
+	nextDelay := 0
 	for {
 		b, err := readByte(r)
 		if err != nil {
@@ -484,6 +485,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			}
 			frame.xOffset = int(i.ImageLeftPosition)
 			frame.yOffset = int(i.ImageTopPosition)
+			frame.delay = nextDelay
 
 			if i.LocalColorTableFlag {
 				frame.palette = make([]Rgb, i.SizeOfLocalColorTable)
@@ -511,6 +513,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				if verbose {
 					log.Printf("Graphic Control Extension: %s\n", g)
 				}
+				nextDelay = int(g.DelayTime)
 			case 0xFE:
 				//Comment Extension
 				if verbose {

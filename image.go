@@ -44,6 +44,7 @@ type ImageFrame struct {
 	height  int
 	xOffset int
 	yOffset int
+	delay   int
 	palette Palette
 	data    []byte
 }
