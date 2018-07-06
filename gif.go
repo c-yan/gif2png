@@ -10,8 +10,6 @@ import (
 	"math"
 )
 
-var errNotImplemented = errors.New("Not implemented")
-
 type header struct {
 	Signature string
 	Version   string
@@ -456,7 +454,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	}
 
 	if l.ColorResolution != 8 {
-		return nil, errNotImplemented
+		return nil, errors.New("Not supported: ColorResolution != 8")
 	}
 
 	if l.GlobalColorTableFlag {
