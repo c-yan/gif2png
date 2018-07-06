@@ -451,12 +451,14 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	data.width = int(l.LogicalScreenWidth)
 	data.height = int(l.LogicalScreenHeight)
 
-	if l.ColorResolution != 8 {
-		return nil, errNotImplemented
-	}
 	if verbose {
 		log.Printf("Logical Screen Descriptor: %s\n", l)
 	}
+
+	if l.ColorResolution != 8 {
+		return nil, errNotImplemented
+	}
+
 	if l.GlobalColorTableFlag {
 		data.palette = make([]Rgb, l.SizeOfGlobalColorTable)
 		data.palette.UnmarshalBinary(l.GlobalColorTable)
