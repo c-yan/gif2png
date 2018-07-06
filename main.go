@@ -24,7 +24,13 @@ func writeFile(path string, data *ImageData) error {
 }
 
 func main() {
-	data, err := readFile("test.gif")
+	var src string
+	if len(os.Args) > 1 {
+		src = os.Args[1]
+	} else {
+		src = "test.gif"
+	}
+	data, err := readFile(src)
 	if err != nil {
 		log.Fatal(err)
 	}
