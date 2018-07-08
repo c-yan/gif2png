@@ -41,6 +41,18 @@ type imageHeader struct {
 	InterlaceMethod   byte
 }
 
+type frameControl struct {
+	SequenceNumber uint32
+	Width          uint32
+	Height         uint32
+	XOffset        uint32
+	YOffset        uint32
+	DelayNum       uint16
+	DelayDen       uint16
+	DisposeOp      byte
+	BlendOp        byte
+}
+
 func (v imageHeader) MarshalBinary() (data []byte, err error) {
 	data = make([]byte, 13)
 	binary.BigEndian.PutUint32(data[0:4], v.Width)
@@ -50,6 +62,21 @@ func (v imageHeader) MarshalBinary() (data []byte, err error) {
 	data[10] = v.CompressionMethod
 	data[11] = v.FilterMethod
 	data[12] = v.InterlaceMethod
+	return data, nil
+}
+
+func (v frameControl) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, 26)
+
+	binary.BigEndian.PutUint32(data[:4], v.SequenceNumber)
+	binary.BigEndian.PutUint32(data[4:8], v.Width)
+	binary.BigEndian.PutUint32(data[8:12], v.Height)
+	binary.BigEndian.PutUint32(data[12:16], v.XOffset)
+	binary.BigEndian.PutUint32(data[16:20], v.YOffset)
+	binary.BigEndian.PutUint16(data[20:22], v.DelayNum)
+	binary.BigEndian.PutUint16(data[22:24], v.DelayDen)
+	data[24] = v.DisposeOp
+	data[25] = v.BlendOp
 	return data, nil
 }
 
@@ -101,13 +128,44 @@ func writePLTE(w io.Writer, data *ImageData) error {
 	return writeChunk(w, "PLTE", b)
 }
 
-func serialize(data *ImageData) []byte {
-	b := make([]byte, 0, (data.frames[0].width+1)*data.frames[0].height)
-	for i := 0; i < data.height; i++ {
+func serialize(frame *ImageFrame) []byte {
+	b := make([]byte, 0, (frame.width+1)*frame.height)
+	for i := 0; i < frame.height; i++ {
 		b = append(b, 0)
-		b = append(b, data.frames[0].data[data.frames[0].width*i:data.frames[0].width*(i+1)]...)
+		b = append(b, frame.data[frame.width*i:frame.width*(i+1)]...)
 	}
 	return b
+}
+
+func writeACTL(w io.Writer, data *ImageData) error {
+	var buf [8]byte
+
+	binary.BigEndian.PutUint32(buf[:4], uint32(len(data.frames)))
+	binary.BigEndian.PutUint32(buf[4:], 0)
+	if err := writeChunk(w, "acTL", buf[:]); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeFCTL(w io.Writer, frame *ImageFrame, seq int) error {
+	var f frameControl
+
+	f.SequenceNumber = uint32(seq)
+	f.Width = uint32(frame.width)
+	f.Height = uint32(frame.height)
+	f.XOffset = uint32(frame.xOffset)
+	f.YOffset = uint32(frame.yOffset)
+	f.DelayNum = uint16(frame.delay)
+	f.DelayDen = 100
+	f.DisposeOp = 0
+	f.BlendOp = 0
+
+	b, _ := f.MarshalBinary()
+	if err := writeChunk(w, "fcTL", b); err != nil {
+		return err
+	}
+	return nil
 }
 
 func writeIDAT(w io.Writer, data *ImageData) error {
@@ -117,7 +175,7 @@ func writeIDAT(w io.Writer, data *ImageData) error {
 		return err
 	}
 	defer zw.Close()
-	if _, err := zw.Write(serialize(data)); err != nil {
+	if _, err := zw.Write(serialize(&data.frames[0])); err != nil {
 		return err
 	}
 	if err := zw.Flush(); err != nil {
@@ -129,12 +187,38 @@ func writeIDAT(w io.Writer, data *ImageData) error {
 	return nil
 }
 
+func writeFDAT(w io.Writer, frame *ImageFrame, seq int) error {
+	var b [4]byte
+	buf := &bytes.Buffer{}
+	binary.BigEndian.PutUint32(b[:], uint32(seq))
+	_, err := buf.Write(b[:])
+	if err != nil {
+		return err
+	}
+	zw, err := zlib.NewWriterLevel(buf, zlib.BestCompression)
+	if err != nil {
+		return err
+	}
+	defer zw.Close()
+	if _, err := zw.Write(serialize(frame)); err != nil {
+		return err
+	}
+	if err := zw.Flush(); err != nil {
+		return err
+	}
+	if err := writeChunk(w, "fdAT", buf.Bytes()); err != nil {
+		return err
+	}
+	return nil
+}
+
 func writeIEND(w io.Writer) error {
 	return writeChunk(w, "IEND", nil)
 }
 
 // WritePng writes the image data to writer in PNG format.
 func WritePng(w io.Writer, data *ImageData) error {
+	seq := 0
 	if err := writePngSignature(w); err != nil {
 		return err
 	}
@@ -144,8 +228,29 @@ func WritePng(w io.Writer, data *ImageData) error {
 	if err := writePLTE(w, data); err != nil {
 		return err
 	}
+	if len(data.frames) > 1 {
+		if err := writeACTL(w, data); err != nil {
+			return err
+		}
+		if err := writeFCTL(w, &data.frames[0], seq); err != nil {
+			return err
+		}
+		seq++
+	}
 	if err := writeIDAT(w, data); err != nil {
 		return err
+	}
+	if len(data.frames) > 1 {
+		for _, f := range data.frames[1:] {
+			if err := writeFCTL(w, &f, seq); err != nil {
+				return err
+			}
+			seq++
+			if err := writeFDAT(w, &f, seq); err != nil {
+				return err
+			}
+			seq++
+		}
 	}
 	if err := writeIEND(w); err != nil {
 		return err

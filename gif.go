@@ -307,6 +307,22 @@ func readLogicalScreenDescriptor(r io.Reader) (*logicalScreenDescriptor, error) 
 	return &l, nil
 }
 
+func readBlock(r io.Reader, buf []byte) error {
+	size, err := readByte(r)
+	if err != nil {
+		return err
+	}
+	if int(size) != len(buf) {
+		return fmt.Errorf("buf size error: block size is %d, but buf size is %d", size, len(buf))
+	}
+
+	_, err = io.ReadFull(r, buf[:])
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func skipBlock(r io.Reader) error {
 	var buf [255]byte
 	br := newBlockReader(r)
