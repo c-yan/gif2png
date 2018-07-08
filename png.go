@@ -174,13 +174,13 @@ func writeIDAT(w io.Writer, data *ImageData) error {
 	if err != nil {
 		return err
 	}
-	defer zw.Close()
 	if _, err := zw.Write(serialize(&data.frames[0])); err != nil {
 		return err
 	}
 	if err := zw.Flush(); err != nil {
 		return err
 	}
+	zw.Close()
 	if err := writeChunk(w, "IDAT", buf.Bytes()); err != nil {
 		return err
 	}
@@ -199,13 +199,13 @@ func writeFDAT(w io.Writer, frame *ImageFrame, seq int) error {
 	if err != nil {
 		return err
 	}
-	defer zw.Close()
 	if _, err := zw.Write(serialize(frame)); err != nil {
 		return err
 	}
 	if err := zw.Flush(); err != nil {
 		return err
 	}
+	zw.Close()
 	if err := writeChunk(w, "fdAT", buf.Bytes()); err != nil {
 		return err
 	}
