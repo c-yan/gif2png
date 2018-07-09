@@ -3,7 +3,12 @@ package main
 import (
 	"log"
 	"os"
+	"path/filepath"
 )
+
+func changeExt(path string, ext string) string {
+	return path[:len(path)-len(filepath.Ext(path))] + ext
+}
 
 func readFile(path string) (*ImageData, error) {
 	in, err := os.Open(path)
@@ -34,7 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = writeFile("test.png", data)
+	err = writeFile(changeExt(src, ".png"), data)
 	if err != nil {
 		log.Fatal(err)
 	}
