@@ -168,20 +168,31 @@ func writeFCTL(w io.Writer, frame *ImageFrame, seq int) error {
 	return nil
 }
 
-func writeIDAT(w io.Writer, data *ImageData) error {
-	buf := &bytes.Buffer{}
-	zw, err := zlib.NewWriterLevel(buf, zlib.BestCompression)
+func writeData(w io.Writer, data []byte) error {
+	zw, err := zlib.NewWriterLevel(w, zlib.BestCompression)
 	if err != nil {
 		return err
 	}
-	if _, err := zw.Write(serialize(&data.frames[0])); err != nil {
+	defer zw.Close()
+	_, err = zw.Write(data)
+	if err != nil {
 		return err
 	}
-	if err := zw.Flush(); err != nil {
+	err = zw.Flush()
+	if err != nil {
 		return err
 	}
-	zw.Close()
-	if err := writeChunk(w, "IDAT", buf.Bytes()); err != nil {
+	return nil
+}
+
+func writeIDAT(w io.Writer, data *ImageData) error {
+	buf := &bytes.Buffer{}
+	err := writeData(buf, serialize(&data.frames[0]))
+	if err != nil {
+		return err
+	}
+	err = writeChunk(w, "IDAT", buf.Bytes())
+	if err != nil {
 		return err
 	}
 	return nil
@@ -195,18 +206,12 @@ func writeFDAT(w io.Writer, frame *ImageFrame, seq int) error {
 	if err != nil {
 		return err
 	}
-	zw, err := zlib.NewWriterLevel(buf, zlib.BestCompression)
+	err = writeData(buf, serialize(frame))
 	if err != nil {
 		return err
 	}
-	if _, err := zw.Write(serialize(frame)); err != nil {
-		return err
-	}
-	if err := zw.Flush(); err != nil {
-		return err
-	}
-	zw.Close()
-	if err := writeChunk(w, "fdAT", buf.Bytes()); err != nil {
+	err = writeChunk(w, "fdAT", buf.Bytes())
+	if err != nil {
 		return err
 	}
 	return nil
