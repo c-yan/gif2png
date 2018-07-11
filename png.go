@@ -221,9 +221,46 @@ func writeIEND(w io.Writer) error {
 	return writeChunk(w, "IEND", nil)
 }
 
+func writeAnimationPngData(w io.Writer, data *ImageData) error {
+	if err := writeACTL(w, data); err != nil {
+		return err
+	}
+	seq := 0
+	if err := writeFCTL(w, &data.frames[0], seq); err != nil {
+		return err
+	}
+	seq++
+	if err := writeIDAT(w, data); err != nil {
+		return err
+	}
+	for _, f := range data.frames[1:] {
+		if err := writeFCTL(w, &f, seq); err != nil {
+			return err
+		}
+		seq++
+		if err := writeFDAT(w, &f, seq); err != nil {
+			return err
+		}
+		seq++
+	}
+	if err := writeIEND(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeNormalPngData(w io.Writer, data *ImageData) error {
+	if err := writeIDAT(w, data); err != nil {
+		return err
+	}
+	if err := writeIEND(w); err != nil {
+		return err
+	}
+	return nil
+}
+
 // WritePng writes the image data to writer in PNG format.
 func WritePng(w io.Writer, data *ImageData) error {
-	seq := 0
 	if err := writePngSignature(w); err != nil {
 		return err
 	}
@@ -234,31 +271,7 @@ func WritePng(w io.Writer, data *ImageData) error {
 		return err
 	}
 	if len(data.frames) > 1 {
-		if err := writeACTL(w, data); err != nil {
-			return err
-		}
-		if err := writeFCTL(w, &data.frames[0], seq); err != nil {
-			return err
-		}
-		seq++
+		return writeAnimationPngData(w, data)
 	}
-	if err := writeIDAT(w, data); err != nil {
-		return err
-	}
-	if len(data.frames) > 1 {
-		for _, f := range data.frames[1:] {
-			if err := writeFCTL(w, &f, seq); err != nil {
-				return err
-			}
-			seq++
-			if err := writeFDAT(w, &f, seq); err != nil {
-				return err
-			}
-			seq++
-		}
-	}
-	if err := writeIEND(w); err != nil {
-		return err
-	}
-	return nil
+	return writeNormalPngData(w, data)
 }
