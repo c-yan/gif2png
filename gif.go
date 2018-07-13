@@ -3,7 +3,6 @@ package main
 import (
 	"compress/lzw"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -467,10 +466,6 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 
 	if verbose {
 		log.Printf("Logical Screen Descriptor: %s\n", l)
-	}
-
-	if l.ColorResolution != 8 {
-		return nil, errors.New("Not supported: ColorResolution != 8")
 	}
 
 	if l.GlobalColorTableFlag {
