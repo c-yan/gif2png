@@ -3,6 +3,7 @@ package main
 import (
 	"compress/lzw"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -444,6 +445,19 @@ func deinterlace(frame *ImageFrame, width, height int) []byte {
 	return d
 }
 
+func validateNoMultipleColorTables(data *ImageData) error {
+	const errorMessage = "Not supported: Animation GIF with LocalColorTable"
+	if (data.palette == nil) && len(data.frames) > 1 {
+		return errors.New(errorMessage)
+	}
+	for i := range data.frames[1:] {
+		if data.frames[i].palette != nil {
+			return errors.New(errorMessage)
+		}
+	}
+	return nil
+}
+
 // ReadGif reads the image data from reader as GIF format.
 func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	var data ImageData
@@ -563,6 +577,10 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				return nil, fmt.Errorf("Unknown code: 0x21%02x", b)
 			}
 		case 0x3b:
+			err := validateNoMultipleColorTables(&data)
+			if err != nil {
+				return nil, err
+			}
 			if data.palette == nil {
 				data.palette = data.frames[0].palette
 			}
