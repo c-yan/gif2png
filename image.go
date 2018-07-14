@@ -40,13 +40,14 @@ type Palette []Rgb
 
 // ImageFrame holds picture data.
 type ImageFrame struct {
-	width   int
-	height  int
-	xOffset int
-	yOffset int
-	delay   int
-	palette Palette
-	data    []byte
+	width             int
+	height            int
+	xOffset           int
+	yOffset           int
+	delay             int
+	palette           Palette
+	transparencyIndex int
+	data              []byte
 }
 
 // ImageData holds picture frames.

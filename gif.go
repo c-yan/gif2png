@@ -474,6 +474,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 	}
 
 	nextDelay := 0
+	nextTransparencyIndex := -1
 	for {
 		b, err := readByte(r)
 		if err != nil {
@@ -497,6 +498,7 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			frame.xOffset = int(i.ImageLeftPosition)
 			frame.yOffset = int(i.ImageTopPosition)
 			frame.delay = nextDelay
+			frame.transparencyIndex = nextTransparencyIndex
 
 			if i.LocalColorTableFlag {
 				frame.palette = make([]Rgb, i.SizeOfLocalColorTable)
@@ -525,6 +527,11 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 					log.Printf("Graphic Control Extension: %s\n", g)
 				}
 				nextDelay = int(g.DelayTime)
+				if g.TransparentColorFlag {
+					nextTransparencyIndex = int(g.TransparentColorIndex)
+				} else {
+					nextTransparencyIndex = -1
+				}
 			case 0xFE:
 				//Comment Extension
 				if verbose {

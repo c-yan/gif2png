@@ -128,6 +128,15 @@ func writePLTE(w io.Writer, data *ImageData) error {
 	return writeChunk(w, "PLTE", b)
 }
 
+func writeTRNS(w io.Writer, transparencyIndex int) error {
+	var b [256]byte
+	for i := range b {
+		b[i] = 255
+	}
+	b[transparencyIndex] = 0
+	return writeChunk(w, "tRNS", b[:])
+}
+
 func serialize(frame *ImageFrame) []byte {
 	b := make([]byte, 0, (frame.width+1)*frame.height)
 	for i := 0; i < frame.height; i++ {
@@ -159,7 +168,7 @@ func writeFCTL(w io.Writer, frame *ImageFrame, seq int) error {
 	f.DelayNum = uint16(frame.delay)
 	f.DelayDen = 100
 	f.DisposeOp = 0
-	f.BlendOp = 0
+	f.BlendOp = 1
 
 	b, _ := f.MarshalBinary()
 	if err := writeChunk(w, "fcTL", b); err != nil {
@@ -269,6 +278,11 @@ func WritePng(w io.Writer, data *ImageData) error {
 	}
 	if err := writePLTE(w, data); err != nil {
 		return err
+	}
+	if data.frames[0].transparencyIndex != -1 {
+		if err := writeTRNS(w, data.frames[0].transparencyIndex); err != nil {
+			return err
+		}
 	}
 	if len(data.frames) > 1 {
 		return writeAnimationPngData(w, data)
