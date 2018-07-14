@@ -120,21 +120,17 @@ func writeIHDR(w io.Writer, data *ImageData) error {
 
 func writePLTE(w io.Writer, data *ImageData) error {
 	var b []byte
-	if data.palette != nil {
-		b, _ = data.palette.MarshalBinary()
-	} else {
-		b, _ = data.frames[0].palette.MarshalBinary()
-	}
+	b, _ = data.palette.MarshalBinary()
 	return writeChunk(w, "PLTE", b)
 }
 
-func writeTRNS(w io.Writer, transparencyIndex int) error {
+func writeTRNS(w io.Writer, entries int, transparencyIndex int) error {
 	var b [256]byte
 	for i := range b {
 		b[i] = 255
 	}
 	b[transparencyIndex] = 0
-	return writeChunk(w, "tRNS", b[:])
+	return writeChunk(w, "tRNS", b[:entries])
 }
 
 func serialize(frame *ImageFrame) []byte {
@@ -280,7 +276,7 @@ func WritePng(w io.Writer, data *ImageData) error {
 		return err
 	}
 	if data.frames[0].transparencyIndex != -1 {
-		if err := writeTRNS(w, data.frames[0].transparencyIndex); err != nil {
+		if err := writeTRNS(w, len(data.palette), data.frames[0].transparencyIndex); err != nil {
 			return err
 		}
 	}

@@ -563,6 +563,9 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 				return nil, fmt.Errorf("Unknown code: 0x21%02x", b)
 			}
 		case 0x3b:
+			if data.palette == nil {
+				data.palette = data.frames[0].palette
+			}
 			return &data, nil
 		default:
 			return nil, fmt.Errorf("Unknown code: 0x%02x", b)
