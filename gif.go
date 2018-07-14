@@ -566,6 +566,11 @@ func ReadGif(r io.Reader, verbose bool) (*ImageData, error) {
 			if data.palette == nil {
 				data.palette = data.frames[0].palette
 			}
+			if len(data.frames) > 1 {
+				data.transparencyIndex = data.frames[1].transparencyIndex
+			} else {
+				data.transparencyIndex = data.frames[0].transparencyIndex
+			}
 			return &data, nil
 		default:
 			return nil, fmt.Errorf("Unknown code: 0x%02x", b)

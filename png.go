@@ -275,8 +275,8 @@ func WritePng(w io.Writer, data *ImageData) error {
 	if err := writePLTE(w, data); err != nil {
 		return err
 	}
-	if data.frames[0].transparencyIndex != -1 {
-		if err := writeTRNS(w, len(data.palette), data.frames[0].transparencyIndex); err != nil {
+	if data.transparencyIndex != -1 {
+		if err := writeTRNS(w, len(data.palette), data.transparencyIndex); err != nil {
 			return err
 		}
 	}

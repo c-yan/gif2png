@@ -52,8 +52,9 @@ type ImageFrame struct {
 
 // ImageData holds picture frames.
 type ImageData struct {
-	width   int
-	height  int
-	palette Palette
-	frames  []ImageFrame
+	width             int
+	height            int
+	palette           Palette
+	transparencyIndex int
+	frames            []ImageFrame
 }
