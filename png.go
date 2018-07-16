@@ -164,7 +164,11 @@ func writeFCTL(w io.Writer, frame *ImageFrame, seq int) error {
 	f.DelayNum = uint16(frame.delay)
 	f.DelayDen = 100
 	f.DisposeOp = 0
-	f.BlendOp = 1
+	if frame.transparencyIndex == -1 {
+		f.BlendOp = 0
+	} else {
+		f.BlendOp = 1
+	}
 
 	b, _ := f.MarshalBinary()
 	if err := writeChunk(w, "fcTL", b); err != nil {
